@@ -1,13 +1,220 @@
 <!DOCTYPE html>
-<html>
-<head><title>Portfolio</title></head>
-<body>
-  <button id="connect">Connect Wallet</button>
-  <div id="result"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Adaptive Crypto Portfolio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <style>
+    .loader { border: 3px solid #f3f4f6; border-top: 3px solid #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 2rem auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+      <h1 class="text-3xl font-bold text-gray-900">💰 Adaptive Portfolio</h1>
+      <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl shadow transition">Connect Wallet</button>
+      <button id="disconnectBtn" class="hidden bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-xl shadow transition">Disconnect</button>
+    </div>
+
+    <div id="walletInfo" class="hidden mb-4 text-sm font-mono bg-gray-200 p-2 rounded break-all"></div>
+    <div id="loading" class="hidden loader"></div>
+
+    <div id="content" class="hidden space-y-8">
+      <div class="bg-white p-6 rounded-2xl shadow-sm border">
+        <h2 class="text-xl font-semibold">Total Portfolio Value</h2>
+        <p id="totalUsd" class="text-4xl font-bold text-green-600">$0.00</p>
+      </div>
+
+      <div id="riskAlert" class="hidden bg-red-50 p-4 rounded-xl border border-red-200"></div>
+
+      <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div class="p-4 border-b font-semibold text-lg">🪙 Token Balances</div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr><th class="p-3 text-left">Token</th><th>Balance</th><th>Price</th><th>Value (USD)</th></tr>
+            </thead>
+            <tbody id="tokenTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="defiSection" class="hidden bg-white rounded-2xl shadow-sm border p-4">
+        <h2 class="font-semibold text-lg mb-3">🏦 DeFi Positions</h2>
+        <div id="defiList"></div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const apiBase = 'https://crypto-portfolio-mu-pearl.vercel.app/api';
-    // ... your wallet connection code ...
-    // Then call: fetch(`${apiBase}/covalent?address=${address}&chainId=1`)
+    // ========== YOUR API KEYS (visible in source – for demo/personal use) ==========
+    const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
+    const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
+    // No backend proxy – calls Covalent directly
+
+    let userAddress = null;
+    let currentChainId = 1;
+
+    // DOM elements
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const walletInfo = document.getElementById('walletInfo');
+    const loadingDiv = document.getElementById('loading');
+    const contentDiv = document.getElementById('content');
+    const totalUsdSpan = document.getElementById('totalUsd');
+    const tokenTableBody = document.getElementById('tokenTable');
+    const riskAlertDiv = document.getElementById('riskAlert');
+    const defiSection = document.getElementById('defiSection');
+    const defiListDiv = document.getElementById('defiList');
+
+    // Helper: fetch tokens from Covalent (direct)
+    async function fetchTokens(address, chainId) {
+      const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.data?.items) return [];
+      return data.data.items
+        .filter(t => Number(t.balance) > 0)
+        .map(t => ({
+          name: t.contract_name,
+          symbol: t.contract_ticker_symbol,
+          balance: (Number(t.balance) / 10 ** t.contract_decimals).toFixed(4),
+          quote: t.quote || 0,
+          quoteRate: t.quote_rate || 0,
+          logo: t.logo_url || '',
+        }));
+    }
+
+    // Helper: fetch DeFi positions from Zerion (optional)
+    async function fetchDefi(address) {
+      if (!ZERION_API_KEY) return [];
+      try {
+        const url = `https://api.zerion.io/v1/wallets/${address}/positions?currency=usd`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${ZERION_API_KEY}` } });
+        const data = await res.json();
+        return data.data || [];
+      } catch (e) {
+        console.log('Zerion not available');
+        return [];
+      }
+    }
+
+    // Load everything
+    async function loadPortfolio(address, chainId) {
+      loadingDiv.classList.remove('hidden');
+      contentDiv.classList.add('hidden');
+      try {
+        // Tokens
+        const tokens = await fetchTokens(address, chainId);
+        const total = tokens.reduce((sum, t) => sum + t.quote, 0);
+        totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+        tokenTableBody.innerHTML = '';
+        if (tokens.length === 0) {
+          tokenTableBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No tokens found</td></tr>';
+        } else {
+          tokens.forEach(t => {
+            const row = `<tr class="border-t">
+              <td class="p-3 flex items-center gap-2">
+                <img src="${t.logo || 'https://placehold.co/24x24'}" class="w-6 h-6 rounded-full" onerror="this.src='https://placehold.co/24x24'">
+                ${t.name} (${t.symbol})
+              </td>
+              <td class="p-3">${t.balance}</td>
+              <td class="p-3">$${t.quoteRate ? t.quoteRate.toFixed(4) : '0.0000'}</td>
+              <td class="p-3 font-medium">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
+            </tr>`;
+            tokenTableBody.insertAdjacentHTML('beforeend', row);
+          });
+        }
+
+        // DeFi positions
+        const defi = await fetchDefi(address);
+        if (defi.length > 0) {
+          defiSection.classList.remove('hidden');
+          defiListDiv.innerHTML = '';
+          defi.slice(0, 8).forEach(pos => {
+            const protocol = pos.attributes?.protocol || 'Unknown';
+            const asset = pos.attributes?.name || 'Asset';
+            const value = pos.attributes?.value_usd || 0;
+            const div = document.createElement('div');
+            div.className = 'flex justify-between border-b py-2';
+            div.innerHTML = `<span>${protocol} – ${asset}</span><span>$${value.toFixed(2)}</span>`;
+            defiListDiv.appendChild(div);
+          });
+        } else {
+          defiSection.classList.add('hidden');
+        }
+
+        // Simulated risk alert (replace with real Pyth if desired)
+        const volatility = Math.random() * 10;
+        if (volatility > 5) {
+          riskAlertDiv.classList.remove('hidden');
+          riskAlertDiv.innerHTML = `<p class="text-red-700">⚠️ High ETH volatility: ${volatility.toFixed(1)}% (simulated)</p>`;
+        } else {
+          riskAlertDiv.classList.add('hidden');
+        }
+
+        contentDiv.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        alert('Failed to load portfolio. Check console for details.');
+      } finally {
+        loadingDiv.classList.add('hidden');
+      }
+    }
+
+    // Wallet connection using ethers
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert('Please install MetaMask or another Web3 wallet.');
+        return;
+      }
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send('eth_requestAccounts', []);
+        userAddress = accounts[0];
+        const network = await provider.getNetwork();
+        currentChainId = Number(network.chainId);
+        walletInfo.innerText = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)} (Chain ID: ${currentChainId})`;
+        walletInfo.classList.remove('hidden');
+        connectBtn.classList.add('hidden');
+        disconnectBtn.classList.remove('hidden');
+        await loadPortfolio(userAddress, currentChainId);
+      } catch (err) {
+        console.error(err);
+        alert('Connection failed.');
+      }
+    }
+
+    function disconnectWallet() {
+      userAddress = null;
+      walletInfo.classList.add('hidden');
+      connectBtn.classList.remove('hidden');
+      disconnectBtn.classList.add('hidden');
+      contentDiv.classList.add('hidden');
+      defiSection.classList.add('hidden');
+    }
+
+    connectBtn.onclick = connectWallet;
+    disconnectBtn.onclick = disconnectWallet;
+
+    // Listen for chain/account changes
+    if (window.ethereum) {
+      window.ethereum.on('chainChanged', (chainIdHex) => {
+        currentChainId = parseInt(chainIdHex, 16);
+        if (userAddress) loadPortfolio(userAddress, currentChainId);
+      });
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0) disconnectWallet();
+        else if (accounts[0] !== userAddress) {
+          userAddress = accounts[0];
+          if (userAddress) loadPortfolio(userAddress, currentChainId);
+        }
+      });
+    }
   </script>
 </body>
 </html>
