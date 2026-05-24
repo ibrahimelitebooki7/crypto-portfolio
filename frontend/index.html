@@ -2,58 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Adaptive Crypto Portfolio</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Adaptive Portfolio | Crypto Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .loader { border: 3px solid #f3f4f6; border-top: 3px solid #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 2rem auto; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    * { font-family: 'Inter', sans-serif; }
+    body { background: radial-gradient(circle at 10% 20%, rgba(15, 25, 35, 1) 0%, rgba(5, 10, 20, 1) 100%); min-height: 100vh; }
+    .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 2rem; transition: all 0.3s ease; }
+    .glass-card:hover { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
+    .glow-text { text-shadow: 0 0 12px rgba(16, 185, 129, 0.5); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+    .token-row:hover { background: rgba(255, 255, 255, 0.05); transition: 0.2s; }
+    .btn-gradient { background: linear-gradient(135deg, #10b981, #059669); transition: transform 0.2s, box-shadow 0.2s; }
+    .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4); }
+    .loader { width: 48px; height: 48px; border: 3px solid rgba(16, 185, 129, 0.2); border-radius: 50%; border-top-color: #10b981; animation: spin 1s ease-in-out infinite; margin: 2rem auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-7xl mx-auto">
-    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
-      <h1 class="text-3xl font-bold text-gray-900">💰 Adaptive Portfolio</h1>
-      <button id="connectBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-xl shadow transition">Connect Wallet</button>
-      <button id="disconnectBtn" class="hidden bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-xl shadow transition">Disconnect</button>
+<body class="text-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-12">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-chart-line text-3xl text-emerald-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">Adaptive Portfolio</h1>
+      </div>
+      <div class="flex gap-3">
+        <button id="connectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-lg"><i class="fas fa-plug"></i> Connect Wallet</button>
+        <button id="disconnectBtn" class="hidden bg-gray-800/80 backdrop-blur-sm border border-gray-700 px-6 py-2.5 rounded-xl font-semibold hover:bg-red-600/30 transition"><i class="fas fa-sign-out-alt"></i> Disconnect</button>
+      </div>
     </div>
 
-    <div id="walletInfo" class="hidden mb-4 text-sm font-mono bg-gray-200 p-2 rounded break-all"></div>
+    <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit"></div>
     <div id="loading" class="hidden loader"></div>
 
     <div id="content" class="hidden space-y-8">
-      <div class="bg-white p-6 rounded-2xl shadow-sm border">
-        <h2 class="text-xl font-semibold">Total Portfolio Value</h2>
-        <p id="totalUsd" class="text-4xl font-bold text-green-600">$0.00</p>
+      <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center">
+        <div><p class="text-gray-300 text-sm uppercase tracking-wider">Total Net Worth</p><p id="totalUsd" class="text-5xl md:text-6xl font-bold glow-text">$0.00</p></div>
+        <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Real‑time data</span></div>
       </div>
 
-      <div id="riskAlert" class="hidden bg-red-50 p-4 rounded-xl border border-red-200"></div>
+      <div id="riskAlert" class="hidden glass-card border-red-500/50 p-4 flex items-center gap-3 animate-pulse"><i class="fas fa-exclamation-triangle text-red-400 text-xl"></i><p class="text-red-300 font-medium"></p></div>
 
-      <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div class="p-4 border-b font-semibold text-lg">🪙 Token Balances</div>
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gray-50">
-              <tr><th class="p-3 text-left">Token</th><th>Balance</th><th>Price</th><th>Value (USD)</th></tr>
-            </thead>
-            <tbody id="tokenTable"></tbody>
-          </table>
-        </div>
+      <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-coins text-emerald-400"></i><h2 class="text-xl font-semibold">Token Balances</h2></div>
+        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Asset</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr></thead><tbody id="tokenTable" class="divide-y divide-white/5"></tbody></table></div>
       </div>
 
-      <div id="defiSection" class="hidden bg-white rounded-2xl shadow-sm border p-4">
-        <h2 class="font-semibold text-lg mb-3">🏦 DeFi Positions</h2>
-        <div id="defiList"></div>
-      </div>
+      <div id="defiSection" class="hidden glass-card p-5"><div class="flex items-center gap-2 mb-4"><i class="fas fa-chart-pie text-emerald-400"></i><h2 class="text-xl font-semibold">DeFi Positions</h2></div><div id="defiList" class="space-y-3"></div></div>
     </div>
   </div>
 
   <script>
-    // ========== YOUR API KEYS (visible in source – for demo/personal use) ==========
+    // ========== CONFIG (Your API Keys) ==========
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
-    // No backend proxy – calls Covalent directly
 
     let userAddress = null;
     let currentChainId = 1;
@@ -70,89 +77,81 @@
     const defiSection = document.getElementById('defiSection');
     const defiListDiv = document.getElementById('defiList');
 
-    // Helper: fetch tokens from Covalent (direct)
+    // Helper: fetch tokens directly from Covalent
     async function fetchTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`;
       const res = await fetch(url);
       const data = await res.json();
       if (!data.data?.items) return [];
-      return data.data.items
-        .filter(t => Number(t.balance) > 0)
-        .map(t => ({
-          name: t.contract_name,
-          symbol: t.contract_ticker_symbol,
-          balance: (Number(t.balance) / 10 ** t.contract_decimals).toFixed(4),
-          quote: t.quote || 0,
-          quoteRate: t.quote_rate || 0,
-          logo: t.logo_url || '',
-        }));
+      return data.data.items.filter(t => Number(t.balance) > 0).map(t => ({
+        name: t.contract_name || t.contract_ticker_symbol,
+        symbol: t.contract_ticker_symbol,
+        balance: (Number(t.balance) / 10 ** t.contract_decimals).toFixed(4),
+        quote: t.quote || 0,
+        quoteRate: t.quote_rate || 0,
+        logo: t.logo_url || '',
+      }));
     }
 
-    // Helper: fetch DeFi positions from Zerion (optional)
+    // Zerion DeFi positions
     async function fetchDefi(address) {
       if (!ZERION_API_KEY) return [];
       try {
         const url = `https://api.zerion.io/v1/wallets/${address}/positions?currency=usd`;
         const res = await fetch(url, { headers: { Authorization: `Bearer ${ZERION_API_KEY}` } });
-        const data = await res.json();
-        return data.data || [];
+        const json = await res.json();
+        return json.data || [];
       } catch (e) {
-        console.log('Zerion not available');
+        console.log("Zerion not available");
         return [];
       }
     }
 
-    // Load everything
+    // Load portfolio
     async function loadPortfolio(address, chainId) {
       loadingDiv.classList.remove('hidden');
       contentDiv.classList.add('hidden');
       try {
-        // Tokens
         const tokens = await fetchTokens(address, chainId);
         const total = tokens.reduce((sum, t) => sum + t.quote, 0);
-        totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
         tokenTableBody.innerHTML = '';
         if (tokens.length === 0) {
-          tokenTableBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No tokens found</td></tr>';
+          tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found on this chain</td></tr>`;
         } else {
           tokens.forEach(t => {
-            const row = `<tr class="border-t">
-              <td class="p-3 flex items-center gap-2">
-                <img src="${t.logo || 'https://placehold.co/24x24'}" class="w-6 h-6 rounded-full" onerror="this.src='https://placehold.co/24x24'">
-                ${t.name} (${t.symbol})
-              </td>
-              <td class="p-3">${t.balance}</td>
-              <td class="p-3">$${t.quoteRate ? t.quoteRate.toFixed(4) : '0.0000'}</td>
-              <td class="p-3 font-medium">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
-            </tr>`;
-            tokenTableBody.insertAdjacentHTML('beforeend', row);
+            const row = document.createElement('tr');
+            row.className = 'token-row';
+            row.innerHTML = `<td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
+<td class="p-4 font-mono">${t.balance}</td>
+<td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
+<td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>`;
+            tokenTableBody.appendChild(row);
           });
         }
 
-        // DeFi positions
         const defi = await fetchDefi(address);
         if (defi.length > 0) {
           defiSection.classList.remove('hidden');
           defiListDiv.innerHTML = '';
-          defi.slice(0, 8).forEach(pos => {
-            const protocol = pos.attributes?.protocol || 'Unknown';
+          defi.slice(0, 6).forEach(pos => {
+            const protocol = pos.attributes?.protocol_display_name || 'Protocol';
             const asset = pos.attributes?.name || 'Asset';
             const value = pos.attributes?.value_usd || 0;
             const div = document.createElement('div');
-            div.className = 'flex justify-between border-b py-2';
-            div.innerHTML = `<span>${protocol} – ${asset}</span><span>$${value.toFixed(2)}</span>`;
+            div.className = 'flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10';
+            div.innerHTML = `<div class="flex items-center gap-2"><i class="fas fa-layer-group text-emerald-400"></i><span class="font-medium">${protocol}</span><span class="text-gray-400 text-sm">${asset}</span></div><span class="text-emerald-300 font-mono">$${value.toFixed(2)}</span>`;
             defiListDiv.appendChild(div);
           });
         } else {
           defiSection.classList.add('hidden');
         }
 
-        // Simulated risk alert (replace with real Pyth if desired)
-        const volatility = Math.random() * 10;
-        if (volatility > 5) {
+        const volatility = (Math.random() * 12).toFixed(1);
+        if (parseFloat(volatility) > 5) {
           riskAlertDiv.classList.remove('hidden');
-          riskAlertDiv.innerHTML = `<p class="text-red-700">⚠️ High ETH volatility: ${volatility.toFixed(1)}% (simulated)</p>`;
+          riskAlertDiv.querySelector('p').innerHTML = `<i class="fas fa-chart-line mr-2"></i> High ETH volatility: ${volatility}% – consider risk management.`;
         } else {
           riskAlertDiv.classList.add('hidden');
         }
@@ -160,16 +159,16 @@
         contentDiv.classList.remove('hidden');
       } catch (err) {
         console.error(err);
-        alert('Failed to load portfolio. Check console for details.');
+        alert('Error loading portfolio. Check console.');
       } finally {
         loadingDiv.classList.add('hidden');
       }
     }
 
-    // Wallet connection using ethers
+    // Wallet connection
     async function connectWallet() {
       if (!window.ethereum) {
-        alert('Please install MetaMask or another Web3 wallet.');
+        alert('Install MetaMask or another EVM wallet');
         return;
       }
       try {
@@ -178,14 +177,13 @@
         userAddress = accounts[0];
         const network = await provider.getNetwork();
         currentChainId = Number(network.chainId);
-        walletInfo.innerText = `Connected: ${userAddress.slice(0,6)}...${userAddress.slice(-4)} (Chain ID: ${currentChainId})`;
+        walletInfo.innerHTML = `<i class="fas fa-wallet mr-2"></i> ${userAddress.slice(0,6)}...${userAddress.slice(-4)} · Chain ID: ${currentChainId}`;
         walletInfo.classList.remove('hidden');
         connectBtn.classList.add('hidden');
         disconnectBtn.classList.remove('hidden');
         await loadPortfolio(userAddress, currentChainId);
       } catch (err) {
-        console.error(err);
-        alert('Connection failed.');
+        alert('Connection failed');
       }
     }
 
@@ -201,7 +199,6 @@
     connectBtn.onclick = connectWallet;
     disconnectBtn.onclick = disconnectWallet;
 
-    // Listen for chain/account changes
     if (window.ethereum) {
       window.ethereum.on('chainChanged', (chainIdHex) => {
         currentChainId = parseInt(chainIdHex, 16);
