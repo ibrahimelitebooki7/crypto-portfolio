@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | DeFi Analytics + Wallet via URL</title>
+  <title>Adaptive Portfolio | Wallet Switcher + URL Share</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
@@ -75,6 +75,9 @@
       font-size: 0.75rem;
       font-family: monospace;
     }
+    .change-wallet-panel {
+      transition: all 0.2s;
+    }
   </style>
 </head>
 <body class="text-white">
@@ -91,16 +94,25 @@
       </div>
     </div>
 
-    <!-- Wallet info with copyable address -->
-    <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm flex flex-wrap justify-between items-center gap-2"></div>
+    <!-- Wallet info with copy and change wallet button -->
+    <div id="walletInfo" class="hidden mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm flex flex-wrap justify-between items-center gap-3"></div>
     
+    <!-- Change Wallet Panel (hidden initially) -->
+    <div id="changeWalletPanel" class="hidden glass-card p-4 mb-6 change-wallet-panel">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <input type="text" id="manualWalletInput" placeholder="Enter Ethereum address (0x...)" class="flex-1 bg-gray-800/80 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500">
+        <button id="applyWalletBtn" class="btn-gradient px-5 py-2 rounded-xl text-sm"><i class="fas fa-sync-alt mr-2"></i>Load Wallet</button>
+      </div>
+      <p class="text-xs text-gray-400 mt-2"><i class="fas fa-info-circle"></i> Enter any Ethereum address to view its portfolio. The URL will update automatically.</p>
+    </div>
+
     <div id="loading" class="hidden loader"></div>
 
-    <!-- Connect Prompt (shown only when no wallet and no URL param) -->
+    <!-- Connect Prompt (shown only when no wallet active) -->
     <div id="connectPrompt" class="glass-card text-center py-16 px-6">
       <i class="fas fa-link text-6xl text-emerald-400 mb-4"></i>
-      <h2 class="text-2xl font-bold mb-2">Connect Wallet or Use URL Parameter</h2>
-      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet via MetaMask, or add <code class="bg-gray-800 px-2 py-1 rounded">?wallet=0xYourAddress</code> to the URL to view any wallet's portfolio.</p>
+      <h2 class="text-2xl font-bold mb-2">No Wallet Selected</h2>
+      <p class="text-gray-300 max-w-md mx-auto">Connect MetaMask, use the <strong>Change Wallet</strong> button, or add <code class="bg-gray-800 px-2 py-1 rounded">?wallet=0x...</code> to the URL.</p>
       <button id="promptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect MetaMask</button>
     </div>
 
@@ -209,17 +221,22 @@
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
+    // Global state
     let userAddress = null;
-    let currentChainId = 1;   // Ethereum mainnet
+    let currentChainId = 1;          // Ethereum mainnet
     let allTokens = [];
     let showZero = false;
-    let isUrlWallet = false;    // track if we are using URL wallet
+    let walletSource = null;          // 'metamask', 'url', 'manual'
+    let isManualOverride = false;
 
     // DOM elements
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const promptConnectBtn = document.getElementById('promptConnectBtn');
     const walletInfoDiv = document.getElementById('walletInfo');
+    const changeWalletPanel = document.getElementById('changeWalletPanel');
+    const manualWalletInput = document.getElementById('manualWalletInput');
+    const applyWalletBtn = document.getElementById('applyWalletBtn');
     const loadingDiv = document.getElementById('loading');
     const contentDiv = document.getElementById('content');
     const connectPromptDiv = document.getElementById('connectPrompt');
@@ -370,19 +387,17 @@
       } catch (e) { return []; }
     }
 
-    // ========== DeFi Analytics: FIFO P&L, Fees, Net Invested ==========
+    // ========== DeFi Analytics ==========
     async function computeDeFiAnalytics(address, chainId) {
       const allTxs = await fetchAllTransactions(address, chainId);
       let totalFeesUSD = 0;
       let netInflowETH = 0;
-      
       for (const tx of allTxs) {
         const gasUsed = parseFloat(tx.gas_spent) || 0;
         const gasPrice = parseFloat(tx.gas_price) || 0;
         const feeEth = (gasUsed * gasPrice) / 1e18;
         const feeUsd = feeEth * (tx.quote_rate || 0);
         totalFeesUSD += feeUsd;
-        
         if (tx.value_transfer && tx.value_transfer !== '0') {
           const valueEth = parseFloat(tx.value) / 1e18;
           if (tx.from === address) netInflowETH -= valueEth;
@@ -392,7 +407,6 @@
       const ethToken = allTokens.find(t => t.symbol === 'ETH');
       const ethPrice = ethToken ? ethToken.quoteRate : 0;
       const netInvestedUSD = netInflowETH * ethPrice;
-      
       let unrealizedGain = 0;
       let defiPositions = [];
       try {
@@ -410,8 +424,7 @@
           }
         }
       } catch (e) { console.warn("Zerion positions error", e); }
-      
-      let realizedGain = 0; // Can be extended with full FIFO
+      let realizedGain = 0; // can be extended
       return { realizedGain, unrealizedGain, totalFeesUSD, netInvestedUSD, defiPositions };
     }
     
@@ -579,24 +592,37 @@
       }
     }
 
+    // ========== UI UPDATE & WALLET MANAGEMENT ==========
     function updateWalletUI() {
       if (userAddress) {
         const shortAddr = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        const mode = isUrlWallet ? '🔗 URL Wallet' : '🦊 MetaMask';
+        let sourceLabel = '';
+        if (walletSource === 'metamask') sourceLabel = '🦊 MetaMask';
+        else if (walletSource === 'url') sourceLabel = '🔗 URL Wallet';
+        else if (walletSource === 'manual') sourceLabel = '✏️ Manual Entry';
+        else sourceLabel = '👤 Wallet';
         walletInfoDiv.innerHTML = `
-          <div class="flex items-center gap-2"><i class="fas fa-wallet"></i> ${shortAddr} <span class="url-badge">${mode}</span></div>
-          <div class="flex gap-2"><button id="copyAddressBtn" class="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded"><i class="far fa-copy"></i> Copy</button></div>
+          <div class="flex items-center gap-2"><i class="fas fa-wallet"></i> ${shortAddr} <span class="url-badge">${sourceLabel}</span></div>
+          <div class="flex gap-2">
+            <button id="copyAddressBtn" class="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded"><i class="far fa-copy"></i> Copy</button>
+            <button id="showChangeWalletBtn" class="text-xs bg-emerald-800 hover:bg-emerald-700 px-2 py-1 rounded"><i class="fas fa-exchange-alt"></i> Change Wallet</button>
+          </div>
         `;
         walletInfoDiv.classList.remove('hidden');
+        changeWalletPanel.classList.remove('hidden');
         document.getElementById('copyAddressBtn')?.addEventListener('click', () => {
           navigator.clipboard.writeText(userAddress);
           alert('Address copied!');
+        });
+        document.getElementById('showChangeWalletBtn')?.addEventListener('click', () => {
+          changeWalletPanel.classList.toggle('hidden');
         });
         connectBtn.classList.add('hidden');
         disconnectBtn.classList.remove('hidden');
         connectPromptDiv.classList.add('hidden');
       } else {
         walletInfoDiv.classList.add('hidden');
+        changeWalletPanel.classList.add('hidden');
         connectBtn.classList.remove('hidden');
         disconnectBtn.classList.add('hidden');
         connectPromptDiv.classList.remove('hidden');
@@ -604,68 +630,102 @@
       }
     }
 
-    async function initFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const walletParam = params.get('wallet');
-      if (walletParam && walletParam.match(/^0x[a-fA-F0-9]{40}$/)) {
-        userAddress = walletParam;
-        isUrlWallet = true;
-        currentChainId = 1; // default to mainnet
-        updateWalletUI();
-        await loadPortfolio(userAddress, currentChainId);
-        return true;
+    // Set a new wallet address (from any source)
+    async function setWallet(address, source) {
+      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+        alert('Invalid Ethereum address');
+        return false;
       }
-      return false;
+      userAddress = address;
+      walletSource = source;
+      isManualOverride = (source === 'manual');
+      updateWalletUI();
+      await loadPortfolio(userAddress, currentChainId);
+      // Update URL parameter for sharing (only if not overriding with MetaMask)
+      const url = new URL(window.location);
+      if (source !== 'metamask') {
+        url.searchParams.set('wallet', address);
+        window.history.pushState({}, '', url);
+      } else {
+        // If MetaMask is used, remove ?wallet param to avoid confusion
+        url.searchParams.delete('wallet');
+        window.history.pushState({}, '', url);
+      }
+      return true;
     }
 
+    // Disconnect
+    function disconnect() {
+      userAddress = null;
+      walletSource = null;
+      isManualOverride = false;
+      updateWalletUI();
+      allTokens = [];
+      contentDiv.classList.add('hidden');
+      const url = new URL(window.location);
+      url.searchParams.delete('wallet');
+      window.history.pushState({}, '', url);
+    }
+
+    // ========== CONNECT HANDLERS ==========
     async function connectMetaMask() {
       if (!window.ethereum) { alert('Install MetaMask'); return; }
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_requestAccounts', []);
-        userAddress = accounts[0];
-        isUrlWallet = false;
+        const address = accounts[0];
         const network = await provider.getNetwork();
         currentChainId = Number(network.chainId);
-        updateWalletUI();
-        await loadPortfolio(userAddress, currentChainId);
+        await setWallet(address, 'metamask');
       } catch (err) { alert('Connection failed: ' + err.message); }
     }
 
-    function disconnect() {
-      userAddress = null;
-      isUrlWallet = false;
-      updateWalletUI();
-      allTokens = [];
-      contentDiv.classList.add('hidden');
-      // If there's a URL wallet, reload with that param or clear
+    function manualWalletChange() {
+      const addr = manualWalletInput.value.trim();
+      if (addr) setWallet(addr, 'manual');
+      manualWalletInput.value = '';
+      changeWalletPanel.classList.add('hidden');
+    }
+
+    // Check URL param on load
+    async function initFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      if (params.has('wallet')) {
-        params.delete('wallet');
-        const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-        window.history.pushState({}, '', newUrl);
+      const walletParam = params.get('wallet');
+      if (walletParam && walletParam.match(/^0x[a-fA-F0-9]{40}$/)) {
+        await setWallet(walletParam, 'url');
+        return true;
       }
+      return false;
     }
 
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
 
+    // Event listeners
     connectBtn.onclick = connectMetaMask;
     disconnectBtn.onclick = disconnect;
     promptConnectBtn.onclick = connectMetaMask;
+    applyWalletBtn.onclick = manualWalletChange;
+    manualWalletInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') manualWalletChange(); });
     showZeroCheckbox.addEventListener('change', (e) => { showZero = e.target.checked; if (allTokens.length) renderTokens(allTokens); });
 
+    // Network change for MetaMask only
     if (window.ethereum) {
-      window.ethereum.on('chainChanged', (chainIdHex) => { currentChainId = parseInt(chainIdHex, 16); if (userAddress && !isUrlWallet) loadPortfolio(userAddress, currentChainId); });
-      window.ethereum.on('accountsChanged', (accounts) => { if (!accounts.length && !isUrlWallet) disconnect(); else if (accounts[0] !== userAddress && !isUrlWallet) { userAddress = accounts[0]; loadPortfolio(userAddress, currentChainId); } });
+      window.ethereum.on('chainChanged', (chainIdHex) => {
+        currentChainId = parseInt(chainIdHex, 16);
+        if (userAddress && walletSource === 'metamask') loadPortfolio(userAddress, currentChainId);
+      });
+      window.ethereum.on('accountsChanged', (accounts) => {
+        if (accounts.length === 0 && walletSource === 'metamask') disconnect();
+        else if (accounts[0] !== userAddress && walletSource === 'metamask' && accounts[0]) {
+          setWallet(accounts[0], 'metamask');
+        }
+      });
     }
 
-    // Initial load: check URL first
+    // Start: check URL, else show connect prompt
     (async () => {
-      const hasUrlWallet = await initFromUrl();
-      if (!hasUrlWallet) {
-        // Show connect prompt
-        updateWalletUI();
-      }
+      const hasUrl = await initFromUrl();
+      if (!hasUrl) updateWalletUI();
     })();
   </script>
 </body>
