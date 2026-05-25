@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | Crypto Dashboard</title>
+  <title>Adaptive Portfolio | Full Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
@@ -14,7 +14,7 @@
     .glass-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; transition: all 0.3s ease; }
     .glass-card:hover { border-color: #10b98180; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
     .glow-text { text-shadow: 0 0 12px #10b98180; }
-    .token-row:hover { background: rgba(255,255,255,0.05); }
+    .token-row:hover, .tx-row:hover { background: rgba(255,255,255,0.05); }
     .btn-gradient { background: linear-gradient(135deg, #10b981, #059669); transition: transform 0.2s; }
     .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 20px -5px #10b98166; }
     .loader { width: 48px; height: 48px; border: 3px solid #10b98133; border-top-color: #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 2rem auto; }
@@ -22,10 +22,14 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #1e293b; }
     ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+    .nft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+    .nft-card { background: rgba(0,0,0,0.4); border-radius: 1rem; overflow: hidden; transition: 0.2s; }
+    .nft-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px -5px #00000080; }
   </style>
 </head>
 <body class="text-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
     <div class="flex flex-wrap justify-between items-center gap-4 mb-12">
       <div class="flex items-center gap-3">
         <i class="fas fa-chart-line text-3xl text-emerald-400"></i>
@@ -37,33 +41,72 @@
       </div>
     </div>
 
+    <!-- Wallet info -->
     <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit"></div>
+    
+    <!-- Loading spinner -->
     <div id="loading" class="hidden loader"></div>
 
+    <!-- Main content -->
     <div id="content" class="hidden space-y-8">
+      <!-- Total value -->
       <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center">
         <div><p class="text-gray-300 text-sm uppercase tracking-wider">Total Net Worth</p><p id="totalUsd" class="text-5xl md:text-6xl font-bold glow-text">$0.00</p></div>
         <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Real‑time data</span></div>
       </div>
 
-      <div id="riskAlert" class="hidden glass-card border-red-500/50 p-4 flex items-center gap-3 animate-pulse"><i class="fas fa-exclamation-triangle text-red-400 text-xl"></i><p class="text-red-300 font-medium"></p></div>
-
-      <div class="glass-card overflow-hidden">
-        <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-coins text-emerald-400"></i><h2 class="text-xl font-semibold">Token Balances</h2></div>
-        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Asset</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr></thead><tbody id="tokenTable" class="divide-y divide-white/5"></tbody></table></div>
+      <!-- Toggle for zero balance tokens (optional) -->
+      <div class="glass-card p-4 flex items-center justify-between">
+        <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="showZeroCheckbox" class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-emerald-500 peer-focus:ring-2 peer-focus:ring-emerald-300 transition"></div>
+          <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5"></div>
+        </label>
       </div>
 
-      <div id="defiSection" class="hidden glass-card p-5"><div class="flex items-center gap-2 mb-4"><i class="fas fa-chart-pie text-emerald-400"></i><h2 class="text-xl font-semibold">DeFi Positions</h2></div><div id="defiList" class="space-y-3"></div></div>
+      <!-- Tokens table -->
+      <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-coins text-emerald-400"></i><h2 class="text-xl font-semibold">Token Balances</h2></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-black/30 text-gray-300 text-sm">
+              <tr><th class="p-4 text-left">Token</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr>
+            </thead>
+            <tbody id="tokenTable" class="divide-y divide-white/5"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-history text-emerald-400"></i><h2 class="text-xl font-semibold">Recent Transactions</h2></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-black/30 text-gray-300 text-sm">
+              <tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr>
+            </thead>
+            <tbody id="txTable" class="divide-y divide-white/5"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NFTs -->
+      <div class="glass-card p-5">
+        <div class="flex items-center gap-2 mb-4"><i class="fas fa-images text-emerald-400"></i><h2 class="text-xl font-semibold">NFT Gallery</h2></div>
+        <div id="nftGrid" class="nft-grid"></div>
+      </div>
     </div>
   </div>
 
   <script>
-    // Your API keys (visible but functional)
+    // ========== YOUR COVALENT API KEY ==========
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
-    const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
     let userAddress = null;
     let currentChainId = 1;
+    let allTokens = [];   // store full list of tokens (including zero balance if needed)
+    let showZero = false;
 
     // DOM elements
     const connectBtn = document.getElementById('connectBtn');
@@ -73,97 +116,160 @@
     const contentDiv = document.getElementById('content');
     const totalUsdSpan = document.getElementById('totalUsd');
     const tokenTableBody = document.getElementById('tokenTable');
-    const riskAlertDiv = document.getElementById('riskAlert');
-    const defiSection = document.getElementById('defiSection');
-    const defiListDiv = document.getElementById('defiList');
+    const txTableBody = document.getElementById('txTable');
+    const nftGrid = document.getElementById('nftGrid');
+    const showZeroCheckbox = document.getElementById('showZeroCheckbox');
 
+    // Helper: fetch token balances (including zero balance if we request all)
     async function fetchTokens(address, chainId) {
-      const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`;
+      const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false`;
       const res = await fetch(url);
       const data = await res.json();
       if (!data.data?.items) return [];
-      return data.data.items.filter(t => Number(t.balance) > 0).map(t => ({
+      return data.data.items.map(t => ({
         name: t.contract_name || t.contract_ticker_symbol,
         symbol: t.contract_ticker_symbol,
-        balance: (Number(t.balance) / 10 ** t.contract_decimals).toFixed(4),
+        balanceRaw: t.balance,
+        decimals: t.contract_decimals,
+        balance: (Number(t.balance) / 10 ** t.contract_decimals),
         quote: t.quote || 0,
         quoteRate: t.quote_rate || 0,
         logo: t.logo_url || '',
+        contract: t.contract_address
       }));
     }
 
-    async function fetchDefi(address) {
-      if (!ZERION_API_KEY) return [];
-      try {
-        const url = `https://api.zerion.io/v1/wallets/${address}/positions?currency=usd`;
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${ZERION_API_KEY}` } });
-        const json = await res.json();
-        return json.data || [];
-      } catch (e) {
-        console.log("Zerion not available");
-        return [];
+    // Helper: fetch transactions
+    async function fetchTransactions(address, chainId) {
+      const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/?key=${COVALENT_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.data?.items) return [];
+      return data.data.items.slice(0, 15); // last 15
+    }
+
+    // Helper: fetch NFTs (with metadata)
+    async function fetchNFTs(address, chainId) {
+      const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=true`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const nftItems = data.data?.items?.filter(i => i.nft_data && i.nft_data.length > 0) || [];
+      // Flatten and extract first image
+      const nfts = [];
+      for (const item of nftItems) {
+        for (const nft of item.nft_data) {
+          if (nft.external_data?.image) {
+            nfts.push({
+              name: nft.external_data.name || `${item.contract_name} #${nft.token_id}`,
+              image: nft.external_data.image,
+              collection: item.contract_name
+            });
+          }
+        }
+      }
+      return nfts.slice(0, 24); // limit to 24
+    }
+
+    // Render tokens based on showZero toggle
+    function renderTokens(tokens) {
+      let filtered = tokens;
+      if (!showZero) {
+        filtered = tokens.filter(t => t.balance > 0);
+      }
+      const total = filtered.reduce((sum, t) => sum + t.quote, 0);
+      totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      tokenTableBody.innerHTML = '';
+      if (filtered.length === 0) {
+        tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance. Toggle "Show zero‑balance" to see all.' : ''}</td></tr>`;
+      } else {
+        filtered.forEach(t => {
+          const row = document.createElement('tr');
+          row.className = 'token-row';
+          row.innerHTML = `
+            <td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
+            <td class="p-4 font-mono">${t.balance.toFixed(6)}</td>
+            <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
+            <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
+          `;
+          tokenTableBody.appendChild(row);
+        });
       }
     }
 
+    // Render transactions
+    function renderTransactions(txs) {
+      txTableBody.innerHTML = '';
+      if (txs.length === 0) {
+        txTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No transactions found</td></tr>`;
+        return;
+      }
+      txs.forEach(tx => {
+        const row = document.createElement('tr');
+        row.className = 'tx-row';
+        const date = new Date(tx.block_signed_at).toLocaleString();
+        const valueEth = (Number(tx.value) / 1e18).toFixed(6);
+        const status = tx.successful ? '✅ Success' : '❌ Failed';
+        row.innerHTML = `
+          <td class="p-4 font-mono text-sm"><a href="https://etherscan.io/tx/${tx.tx_hash}" target="_blank" class="text-emerald-400 hover:underline">${tx.tx_hash.slice(0,8)}...${tx.tx_hash.slice(-6)}</a></td>
+          <td class="p-4 text-sm">${date}</td>
+          <td class="p-4">${valueEth} ETH</td>
+          <td class="p-4">${status}</td>
+        `;
+        txTableBody.appendChild(row);
+      });
+    }
+
+    // Render NFTs
+    function renderNFTs(nfts) {
+      nftGrid.innerHTML = '';
+      if (nfts.length === 0) {
+        nftGrid.innerHTML = `<div class="col-span-full text-center text-gray-400 py-8">No NFTs found</div>`;
+        return;
+      }
+      nfts.forEach(nft => {
+        const card = document.createElement('div');
+        card.className = 'nft-card';
+        card.innerHTML = `
+          <img src="${nft.image}" class="w-full h-32 object-cover" onerror="this.src='https://placehold.co/400x400?text=No+Image'">
+          <div class="p-2 text-xs truncate">${nft.name}</div>
+          <div class="p-2 text-xs text-gray-400 truncate">${nft.collection}</div>
+        `;
+        nftGrid.appendChild(card);
+      });
+    }
+
+    // Main loader
     async function loadPortfolio(address, chainId) {
       loadingDiv.classList.remove('hidden');
       contentDiv.classList.add('hidden');
       try {
-        const tokens = await fetchTokens(address, chainId);
-        const total = tokens.reduce((sum, t) => sum + t.quote, 0);
-        totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-        tokenTableBody.innerHTML = '';
-        if (tokens.length === 0) {
-          tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found on this chain</td></tr>`;
-        } else {
-          tokens.forEach(t => {
-            const row = document.createElement('tr');
-            row.className = 'token-row';
-            row.innerHTML = `
-              <td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
-              <td class="p-4 font-mono">${t.balance}</td>
-              <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
-              <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
-            `;
-            tokenTableBody.appendChild(row);
-          });
-        }
-
-        const defi = await fetchDefi(address);
-        if (defi.length > 0) {
-          defiSection.classList.remove('hidden');
-          defiListDiv.innerHTML = '';
-          defi.slice(0, 6).forEach(pos => {
-            const protocol = pos.attributes?.protocol_display_name || 'Protocol';
-            const asset = pos.attributes?.name || 'Asset';
-            const value = pos.attributes?.value_usd || 0;
-            const div = document.createElement('div');
-            div.className = 'flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10';
-            div.innerHTML = `<div class="flex items-center gap-2"><i class="fas fa-layer-group text-emerald-400"></i><span class="font-medium">${protocol}</span><span class="text-gray-400 text-sm">${asset}</span></div><span class="text-emerald-300 font-mono">$${value.toFixed(2)}</span>`;
-            defiListDiv.appendChild(div);
-          });
-        } else {
-          defiSection.classList.add('hidden');
-        }
-
-        const volatility = (Math.random() * 12).toFixed(1);
-        if (parseFloat(volatility) > 5) {
-          riskAlertDiv.classList.remove('hidden');
-          riskAlertDiv.querySelector('p').innerHTML = `<i class="fas fa-chart-line mr-2"></i> High ETH volatility: ${volatility}% – consider risk management.`;
-        } else {
-          riskAlertDiv.classList.add('hidden');
-        }
-
+        // Fetch everything in parallel
+        const [tokens, txs, nfts] = await Promise.all([
+          fetchTokens(address, chainId),
+          fetchTransactions(address, chainId),
+          fetchNFTs(address, chainId)
+        ]);
+        allTokens = tokens;
+        renderTokens(allTokens);
+        renderTransactions(txs);
+        renderNFTs(nfts);
         contentDiv.classList.remove('hidden');
       } catch (err) {
         console.error(err);
-        alert('Error loading portfolio. Check console.');
+        alert('Error loading portfolio. Check console or API key.');
       } finally {
         loadingDiv.classList.add('hidden');
       }
     }
 
+    // Toggle zero balance
+    showZeroCheckbox.addEventListener('change', (e) => {
+      showZero = e.target.checked;
+      if (allTokens.length) renderTokens(allTokens);
+    });
+
+    // Wallet connection
     async function connectWallet() {
       if (!window.ethereum) {
         alert('Install MetaMask or another EVM wallet');
@@ -181,7 +287,7 @@
         disconnectBtn.classList.remove('hidden');
         await loadPortfolio(userAddress, currentChainId);
       } catch (err) {
-        alert('Connection failed');
+        alert('Connection failed: ' + err.message);
       }
     }
 
@@ -191,12 +297,13 @@
       connectBtn.classList.remove('hidden');
       disconnectBtn.classList.add('hidden');
       contentDiv.classList.add('hidden');
-      defiSection.classList.add('hidden');
+      allTokens = [];
     }
 
     connectBtn.onclick = connectWallet;
     disconnectBtn.onclick = disconnectWallet;
 
+    // Chain/account change listeners
     if (window.ethereum) {
       window.ethereum.on('chainChanged', (chainIdHex) => {
         currentChainId = parseInt(chainIdHex, 16);
