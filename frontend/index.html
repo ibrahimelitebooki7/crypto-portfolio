@@ -22,7 +22,6 @@
     ::-webkit-scrollbar-track { background: #1e293b; }
     ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
 
-    /* Tab styling */
     .tab-btn {
       transition: all 0.2s ease;
       border-bottom: 2px solid transparent;
@@ -63,15 +62,23 @@
       </div>
     </div>
 
-    <!-- Wallet info -->
+    <!-- Wallet info (shown after connect) -->
     <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit"></div>
     
     <!-- Loading spinner -->
     <div id="loading" class="hidden loader"></div>
 
-    <!-- Main content (visible after connect) -->
+    <!-- Connect Prompt (visible when no wallet) -->
+    <div id="connectPrompt" class="glass-card text-center py-16 px-6">
+      <i class="fas fa-link text-6xl text-emerald-400 mb-4"></i>
+      <h2 class="text-2xl font-bold mb-2">Connect Wallet</h2>
+      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet to see your tokens, transactions, NFTs and bridge activity.</p>
+      <button id="promptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect Wallet</button>
+    </div>
+
+    <!-- Main content (hidden until connected) -->
     <div id="content" class="hidden">
-      <!-- Total value card (always visible) -->
+      <!-- Total value card -->
       <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center mb-8">
         <div><p class="text-gray-300 text-sm uppercase tracking-wider">Total Net Worth</p><p id="totalUsd" class="text-5xl md:text-6xl font-bold glow-text">$0.00</p></div>
         <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Real‑time data</span></div>
@@ -85,7 +92,7 @@
         <button data-tab="bridges" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-exchange-alt mr-2"></i>Bridges</button>
       </div>
 
-      <!-- Toggle for zero balance tokens (only relevant for tokens tab) -->
+      <!-- Zero balance toggle (only for tokens tab) -->
       <div id="zeroToggleContainer" class="glass-card p-4 flex items-center justify-between mb-6">
         <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
         <label class="relative inline-flex items-center cursor-pointer">
@@ -159,9 +166,11 @@
     // DOM elements
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
+    const promptConnectBtn = document.getElementById('promptConnectBtn');
     const walletInfo = document.getElementById('walletInfo');
     const loadingDiv = document.getElementById('loading');
     const contentDiv = document.getElementById('content');
+    const connectPromptDiv = document.getElementById('connectPrompt');
     const totalUsdSpan = document.getElementById('totalUsd');
     const tokenTableBody = document.getElementById('tokenTable');
     const txTableBody = document.getElementById('txTable');
@@ -179,13 +188,11 @@
       bridges: document.getElementById('bridgesPane')
     };
 
-    // Tab switching
     function switchTab(tabId) {
       tabBtns.forEach(btn => btn.classList.remove('active'));
       document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
       Object.values(panes).forEach(pane => pane.classList.remove('active-pane'));
       panes[tabId].classList.add('active-pane');
-      // Show/hide zero balance toggle only on tokens tab
       if (tabId === 'tokens') {
         zeroToggleContainer.style.display = 'flex';
       } else {
@@ -357,7 +364,6 @@
         renderNFTs(nfts);
         renderBridgeOrders(bridgeOrders);
         contentDiv.classList.remove('hidden');
-        // Default to tokens tab
         switchTab('tokens');
       } catch (err) {
         console.error(err);
@@ -367,7 +373,6 @@
       }
     }
 
-    // Wallet connection
     async function connectWallet() {
       if (!window.ethereum) {
         alert('Install MetaMask or another EVM wallet');
@@ -383,6 +388,8 @@
         walletInfo.classList.remove('hidden');
         connectBtn.classList.add('hidden');
         disconnectBtn.classList.remove('hidden');
+        connectPromptDiv.classList.add('hidden');
+        contentDiv.classList.remove('hidden');
         await loadPortfolio(userAddress, currentChainId);
       } catch (err) {
         alert('Connection failed: ' + err.message);
@@ -395,11 +402,13 @@
       connectBtn.classList.remove('hidden');
       disconnectBtn.classList.add('hidden');
       contentDiv.classList.add('hidden');
+      connectPromptDiv.classList.remove('hidden');
       allTokens = [];
     }
 
     connectBtn.onclick = connectWallet;
     disconnectBtn.onclick = disconnectWallet;
+    promptConnectBtn.onclick = connectWallet;
 
     showZeroCheckbox.addEventListener('change', (e) => {
       showZero = e.target.checked;
@@ -419,6 +428,11 @@
         }
       });
     }
+
+    // Initial state: show connect prompt
+    connectPromptDiv.classList.remove('hidden');
+    contentDiv.classList.add('hidden');
+    disconnectBtn.classList.add('hidden');
   </script>
 </body>
 </html>
