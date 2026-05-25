@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | Wallet Switcher + URL Share</title>
+  <title>Adaptive Portfolio | Wallet Switcher + DeFi Analytics</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
@@ -67,15 +67,15 @@
       height: 100%;
       object-fit: cover;
     }
-    .url-badge {
+    .wallet-badge {
       background: rgba(16, 185, 129, 0.2);
       border: 1px solid rgba(16, 185, 129, 0.4);
       border-radius: 40px;
-      padding: 6px 12px;
-      font-size: 0.75rem;
+      padding: 4px 10px;
+      font-size: 0.7rem;
       font-family: monospace;
     }
-    .change-wallet-panel {
+    .change-panel {
       transition: all 0.2s;
     }
   </style>
@@ -94,11 +94,21 @@
       </div>
     </div>
 
-    <!-- Wallet info with copy and change wallet button -->
-    <div id="walletInfo" class="hidden mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm flex flex-wrap justify-between items-center gap-3"></div>
-    
-    <!-- Change Wallet Panel (hidden initially) -->
-    <div id="changeWalletPanel" class="hidden glass-card p-4 mb-6 change-wallet-panel">
+    <!-- Wallet info row + change wallet button -->
+    <div id="walletInfoRow" class="hidden mb-4 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-2 text-sm font-mono backdrop-blur-sm flex items-center gap-2">
+          <i class="fas fa-wallet text-emerald-400"></i>
+          <span id="walletAddressDisplay"></span>
+          <span id="walletSourceBadge" class="wallet-badge"></span>
+        </div>
+        <button id="copyAddressBtn" class="text-xs bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg transition"><i class="far fa-copy mr-1"></i> Copy</button>
+        <button id="showChangeWalletBtn" class="text-xs bg-emerald-800 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition"><i class="fas fa-exchange-alt mr-1"></i> Change Wallet</button>
+      </div>
+    </div>
+
+    <!-- Change Wallet Panel (hidden by default) -->
+    <div id="changeWalletPanel" class="hidden glass-card p-4 mb-6 change-panel">
       <div class="flex flex-col sm:flex-row gap-3">
         <input type="text" id="manualWalletInput" placeholder="Enter Ethereum address (0x...)" class="flex-1 bg-gray-800/80 border border-gray-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500">
         <button id="applyWalletBtn" class="btn-gradient px-5 py-2 rounded-xl text-sm"><i class="fas fa-sync-alt mr-2"></i>Load Wallet</button>
@@ -108,15 +118,15 @@
 
     <div id="loading" class="hidden loader"></div>
 
-    <!-- Connect Prompt (shown only when no wallet active) -->
+    <!-- Connect Prompt (shown when no wallet active) -->
     <div id="connectPrompt" class="glass-card text-center py-16 px-6">
       <i class="fas fa-link text-6xl text-emerald-400 mb-4"></i>
-      <h2 class="text-2xl font-bold mb-2">No Wallet Selected</h2>
+      <h2 class="text-2xl font-bold mb-2">No Wallet Loaded</h2>
       <p class="text-gray-300 max-w-md mx-auto">Connect MetaMask, use the <strong>Change Wallet</strong> button, or add <code class="bg-gray-800 px-2 py-1 rounded">?wallet=0x...</code> to the URL.</p>
       <button id="promptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect MetaMask</button>
     </div>
 
-    <!-- Main content -->
+    <!-- Main content (hidden until wallet loaded) -->
     <div id="content" class="hidden">
       <!-- Total value card -->
       <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center mb-8">
@@ -133,7 +143,7 @@
         <button data-tab="defi" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-chart-line mr-2"></i>DeFi Analytics</button>
       </div>
 
-      <!-- Zero balance toggle (only for tokens tab) -->
+      <!-- Zero balance toggle -->
       <div id="zeroToggleContainer" class="glass-card p-4 flex items-center justify-between mb-6">
         <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
         <label class="relative inline-flex items-center cursor-pointer">
@@ -161,7 +171,7 @@
           <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-history text-emerald-400 mr-2"></i>Recent Transactions</h2></div>
           <div class="overflow-x-auto">
             <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr></thead>
+              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th><tr></thead>
               <tbody id="txTable"></tbody>
             </table>
           </div>
@@ -222,18 +232,21 @@
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
     // Global state
-    let userAddress = null;
+    let currentAddress = null;
     let currentChainId = 1;          // Ethereum mainnet
+    let currentSource = null;        // 'metamask', 'url', 'manual'
     let allTokens = [];
     let showZero = false;
-    let walletSource = null;          // 'metamask', 'url', 'manual'
-    let isManualOverride = false;
 
     // DOM elements
     const connectBtn = document.getElementById('connectBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const promptConnectBtn = document.getElementById('promptConnectBtn');
-    const walletInfoDiv = document.getElementById('walletInfo');
+    const walletInfoRow = document.getElementById('walletInfoRow');
+    const walletAddressDisplay = document.getElementById('walletAddressDisplay');
+    const walletSourceBadge = document.getElementById('walletSourceBadge');
+    const copyAddressBtn = document.getElementById('copyAddressBtn');
+    const showChangeWalletBtn = document.getElementById('showChangeWalletBtn');
     const changeWalletPanel = document.getElementById('changeWalletPanel');
     const manualWalletInput = document.getElementById('manualWalletInput');
     const applyWalletBtn = document.getElementById('applyWalletBtn');
@@ -257,7 +270,7 @@
     const portfolioByChainDiv = document.getElementById('portfolioByChain');
     const defiPositionsListDiv = document.getElementById('defiPositionsList');
 
-    // Tab switching
+    // Tab management
     const tabBtns = document.querySelectorAll('.tab-btn');
     const panes = {
       tokens: document.getElementById('tokensPane'),
@@ -290,11 +303,11 @@
       return div;
     }
 
-    // ========== ZERION LOGO FETCH ==========
+    // ========== LOGO FETCHING (Zerion + fallbacks) ==========
     async function fetchZerionLogo(contractAddress, chainId) {
       if (!contractAddress || contractAddress === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') return null;
-      const url = `https://api.zerion.io/v1/fungibles/?filter[addresses]=${chainId}:${contractAddress}`;
       try {
+        const url = `https://api.zerion.io/v1/fungibles/?filter[addresses]=${chainId}:${contractAddress}`;
         const response = await fetch(url, {
           headers: { "Authorization": `Basic ${btoa(ZERION_API_KEY + ':')}` }
         });
@@ -307,8 +320,10 @@
     async function loadTokenLogo(container, tokenAddress, chainId, symbol, covalentLogo) {
       const sources = [
         async () => await fetchZerionLogo(tokenAddress, chainId),
-        () => (chainId === 1 && tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') ? `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
-        () => (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') ? `https://token-assets.vercel.app/api/token/${chainId}/${tokenAddress}/logo-32.png` : null,
+        () => (chainId === 1 && tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') 
+          ? `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
+        () => (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')
+          ? `https://token-assets.vercel.app/api/token/${chainId}/${tokenAddress}/logo-32.png` : null,
         () => symbol ? `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@latest/svg/color/${symbol.toLowerCase()}.svg` : null,
         () => covalentLogo || null
       ];
@@ -323,7 +338,7 @@
           img.className = 'w-full h-full object-cover';
           container.appendChild(img);
           return;
-        } catch (e) {}
+        } catch (e) { /* try next */ }
       }
     }
 
@@ -400,13 +415,14 @@
         totalFeesUSD += feeUsd;
         if (tx.value_transfer && tx.value_transfer !== '0') {
           const valueEth = parseFloat(tx.value) / 1e18;
-          if (tx.from === address) netInflowETH -= valueEth;
-          if (tx.to === address) netInflowETH += valueEth;
+          if (tx.from.toLowerCase() === address.toLowerCase()) netInflowETH -= valueEth;
+          if (tx.to.toLowerCase() === address.toLowerCase()) netInflowETH += valueEth;
         }
       }
       const ethToken = allTokens.find(t => t.symbol === 'ETH');
       const ethPrice = ethToken ? ethToken.quoteRate : 0;
       const netInvestedUSD = netInflowETH * ethPrice;
+      
       let unrealizedGain = 0;
       let defiPositions = [];
       try {
@@ -424,7 +440,8 @@
           }
         }
       } catch (e) { console.warn("Zerion positions error", e); }
-      let realizedGain = 0; // can be extended
+      
+      let realizedGain = 0; // can be extended with full FIFO later
       return { realizedGain, unrealizedGain, totalFeesUSD, netInvestedUSD, defiPositions };
     }
     
@@ -463,11 +480,11 @@
         return;
       }
       positions.forEach(pos => {
-        const attributes = pos.attributes;
-        const protocol = attributes.protocol?.name || 'Unknown';
-        const name = attributes.name || 'Position';
-        const value = parseFloat(attributes.value) || 0;
-        const cost = parseFloat(attributes.cost_basis?.value) || 0;
+        const attrs = pos.attributes;
+        const protocol = attrs.protocol?.name || 'Unknown';
+        const name = attrs.name || 'Position';
+        const value = parseFloat(attrs.value) || 0;
+        const cost = parseFloat(attrs.cost_basis?.value) || 0;
         const gain = value - cost;
         const card = document.createElement('div');
         card.className = 'bg-gray-800/30 p-3 rounded-xl flex justify-between items-center';
@@ -476,7 +493,7 @@
       });
     }
 
-    // ========== RENDER FUNCTIONS ==========
+    // ========== RENDER TOKENS & OTHERS ==========
     function renderTokens(tokens) {
       let filtered = showZero ? tokens : tokens.filter(t => t.balance > 0);
       const total = filtered.reduce((sum, t) => sum + t.quote, 0);
@@ -557,6 +574,7 @@
       });
     }
 
+    // ========== MAIN LOAD FUNCTION ==========
     async function loadPortfolio(address, chainId) {
       loadingDiv.classList.remove('hidden');
       contentDiv.classList.add('hidden');
@@ -592,82 +610,64 @@
       }
     }
 
-    // ========== UI UPDATE & WALLET MANAGEMENT ==========
-    function updateWalletUI() {
-      if (userAddress) {
-        const shortAddr = `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
-        let sourceLabel = '';
-        if (walletSource === 'metamask') sourceLabel = '🦊 MetaMask';
-        else if (walletSource === 'url') sourceLabel = '🔗 URL Wallet';
-        else if (walletSource === 'manual') sourceLabel = '✏️ Manual Entry';
-        else sourceLabel = '👤 Wallet';
-        walletInfoDiv.innerHTML = `
-          <div class="flex items-center gap-2"><i class="fas fa-wallet"></i> ${shortAddr} <span class="url-badge">${sourceLabel}</span></div>
-          <div class="flex gap-2">
-            <button id="copyAddressBtn" class="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded"><i class="far fa-copy"></i> Copy</button>
-            <button id="showChangeWalletBtn" class="text-xs bg-emerald-800 hover:bg-emerald-700 px-2 py-1 rounded"><i class="fas fa-exchange-alt"></i> Change Wallet</button>
-          </div>
-        `;
-        walletInfoDiv.classList.remove('hidden');
-        changeWalletPanel.classList.remove('hidden');
-        document.getElementById('copyAddressBtn')?.addEventListener('click', () => {
-          navigator.clipboard.writeText(userAddress);
-          alert('Address copied!');
-        });
-        document.getElementById('showChangeWalletBtn')?.addEventListener('click', () => {
-          changeWalletPanel.classList.toggle('hidden');
-        });
+    // ========== WALLET MANAGEMENT UI ==========
+    function updateUI() {
+      if (currentAddress) {
+        const shortAddr = `${currentAddress.slice(0,6)}...${currentAddress.slice(-4)}`;
+        walletAddressDisplay.innerText = shortAddr;
+        let sourceText = '';
+        if (currentSource === 'metamask') sourceText = '🦊 MetaMask';
+        else if (currentSource === 'url') sourceText = '🔗 URL Wallet';
+        else if (currentSource === 'manual') sourceText = '✏️ Manual Entry';
+        else sourceText = 'Wallet';
+        walletSourceBadge.innerText = sourceText;
+        walletInfoRow.classList.remove('hidden');
         connectBtn.classList.add('hidden');
         disconnectBtn.classList.remove('hidden');
         connectPromptDiv.classList.add('hidden');
+        changeWalletPanel.classList.add('hidden'); // hide panel after wallet set
       } else {
-        walletInfoDiv.classList.add('hidden');
-        changeWalletPanel.classList.add('hidden');
+        walletInfoRow.classList.add('hidden');
         connectBtn.classList.remove('hidden');
         disconnectBtn.classList.add('hidden');
         connectPromptDiv.classList.remove('hidden');
         contentDiv.classList.add('hidden');
+        changeWalletPanel.classList.add('hidden');
       }
     }
 
-    // Set a new wallet address (from any source)
     async function setWallet(address, source) {
       if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
         alert('Invalid Ethereum address');
         return false;
       }
-      userAddress = address;
-      walletSource = source;
-      isManualOverride = (source === 'manual');
-      updateWalletUI();
-      await loadPortfolio(userAddress, currentChainId);
-      // Update URL parameter for sharing (only if not overriding with MetaMask)
+      currentAddress = address;
+      currentSource = source;
+      updateUI();
+      await loadPortfolio(currentAddress, currentChainId);
+      // Update URL parameter for sharing (except for MetaMask)
       const url = new URL(window.location);
       if (source !== 'metamask') {
         url.searchParams.set('wallet', address);
         window.history.pushState({}, '', url);
       } else {
-        // If MetaMask is used, remove ?wallet param to avoid confusion
         url.searchParams.delete('wallet');
         window.history.pushState({}, '', url);
       }
       return true;
     }
 
-    // Disconnect
-    function disconnect() {
-      userAddress = null;
-      walletSource = null;
-      isManualOverride = false;
-      updateWalletUI();
+    function disconnectWallet() {
+      currentAddress = null;
+      currentSource = null;
+      updateUI();
       allTokens = [];
-      contentDiv.classList.add('hidden');
       const url = new URL(window.location);
       url.searchParams.delete('wallet');
       window.history.pushState({}, '', url);
     }
 
-    // ========== CONNECT HANDLERS ==========
+    // ========== EVENT HANDLERS ==========
     async function connectMetaMask() {
       if (!window.ethereum) { alert('Install MetaMask'); return; }
       try {
@@ -680,53 +680,63 @@
       } catch (err) { alert('Connection failed: ' + err.message); }
     }
 
-    function manualWalletChange() {
-      const addr = manualWalletInput.value.trim();
-      if (addr) setWallet(addr, 'manual');
+    function toggleChangePanel() {
+      changeWalletPanel.classList.toggle('hidden');
       manualWalletInput.value = '';
+    }
+
+    async function applyManualWallet() {
+      const addr = manualWalletInput.value.trim();
+      if (addr) {
+        await setWallet(addr, 'manual');
+      } else {
+        alert('Enter a valid Ethereum address');
+      }
       changeWalletPanel.classList.add('hidden');
     }
 
-    // Check URL param on load
-    async function initFromUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const walletParam = params.get('wallet');
-      if (walletParam && walletParam.match(/^0x[a-fA-F0-9]{40}$/)) {
-        await setWallet(walletParam, 'url');
-        return true;
+    // Copy address
+    copyAddressBtn.addEventListener('click', () => {
+      if (currentAddress) {
+        navigator.clipboard.writeText(currentAddress);
+        alert('Address copied!');
       }
-      return false;
-    }
+    });
 
-    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
-
-    // Event listeners
     connectBtn.onclick = connectMetaMask;
-    disconnectBtn.onclick = disconnect;
+    disconnectBtn.onclick = disconnectWallet;
     promptConnectBtn.onclick = connectMetaMask;
-    applyWalletBtn.onclick = manualWalletChange;
-    manualWalletInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') manualWalletChange(); });
+    showChangeWalletBtn.onclick = toggleChangePanel;
+    applyWalletBtn.onclick = applyManualWallet;
+    manualWalletInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') applyManualWallet(); });
     showZeroCheckbox.addEventListener('change', (e) => { showZero = e.target.checked; if (allTokens.length) renderTokens(allTokens); });
 
     // Network change for MetaMask only
     if (window.ethereum) {
       window.ethereum.on('chainChanged', (chainIdHex) => {
         currentChainId = parseInt(chainIdHex, 16);
-        if (userAddress && walletSource === 'metamask') loadPortfolio(userAddress, currentChainId);
+        if (currentAddress && currentSource === 'metamask') loadPortfolio(currentAddress, currentChainId);
       });
       window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length === 0 && walletSource === 'metamask') disconnect();
-        else if (accounts[0] !== userAddress && walletSource === 'metamask' && accounts[0]) {
+        if (accounts.length === 0 && currentSource === 'metamask') disconnectWallet();
+        else if (accounts[0] !== currentAddress && currentSource === 'metamask' && accounts[0]) {
           setWallet(accounts[0], 'metamask');
         }
       });
     }
 
-    // Start: check URL, else show connect prompt
-    (async () => {
-      const hasUrl = await initFromUrl();
-      if (!hasUrl) updateWalletUI();
+    // Initialization: check URL parameter
+    (async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const walletParam = params.get('wallet');
+      if (walletParam && walletParam.match(/^0x[a-fA-F0-9]{40}$/)) {
+        await setWallet(walletParam, 'url');
+      } else {
+        updateUI(); // show connect prompt
+      }
     })();
+
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
   </script>
 </body>
 </html>
