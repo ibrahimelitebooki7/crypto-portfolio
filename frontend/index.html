@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | Full Dashboard</title>
+  <title>Complete Dashboard | Tokens, NFTs & Bridges</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    /* Same styling as your modern dashboard */
     * { font-family: 'Inter', sans-serif; }
     body { background: radial-gradient(circle at 10% 20%, #0f1923, #050a14); min-height: 100vh; }
     .glass-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; transition: all 0.3s ease; }
@@ -55,7 +56,7 @@
         <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Real‑time data</span></div>
       </div>
 
-      <!-- Toggle for zero balance tokens (optional) -->
+      <!-- Toggle for zero balance tokens -->
       <div class="glass-card p-4 flex items-center justify-between">
         <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
         <label class="relative inline-flex items-center cursor-pointer">
@@ -65,7 +66,7 @@
         </label>
       </div>
 
-      <!-- Tokens table -->
+      <!-- Tokens table with logos -->
       <div class="glass-card overflow-hidden">
         <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-coins text-emerald-400"></i><h2 class="text-xl font-semibold">Token Balances</h2></div>
         <div class="overflow-x-auto">
@@ -91,6 +92,19 @@
         </div>
       </div>
 
+      <!-- Bridge Orders Section (New) -->
+      <div class="glass-card overflow-hidden">
+        <div class="p-5 border-b border-white/10 flex items-center gap-2"><i class="fas fa-exchange-alt text-emerald-400"></i><h2 class="text-xl font-semibold">Bridge Orders</h2></div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-black/30 text-gray-300 text-sm">
+              <tr><th class="p-4 text-left">Order ID</th><th class="p-4 text-left">From → To</th><th class="p-4 text-left">Amount</th><th class="p-4 text-left">Status</th></tr>
+            </thead>
+            <tbody id="bridgeTable" class="divide-y divide-white/5"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- NFTs -->
       <div class="glass-card p-5">
         <div class="flex items-center gap-2 mb-4"><i class="fas fa-images text-emerald-400"></i><h2 class="text-xl font-semibold">NFT Gallery</h2></div>
@@ -105,7 +119,7 @@
 
     let userAddress = null;
     let currentChainId = 1;
-    let allTokens = [];   // store full list of tokens (including zero balance if needed)
+    let allTokens = [];   // store full list of tokens
     let showZero = false;
 
     // DOM elements
@@ -119,8 +133,9 @@
     const txTableBody = document.getElementById('txTable');
     const nftGrid = document.getElementById('nftGrid');
     const showZeroCheckbox = document.getElementById('showZeroCheckbox');
+    const bridgeTableBody = document.getElementById('bridgeTable');
 
-    // Helper: fetch token balances (including zero balance if we request all)
+    // Helper: fetch token balances (including logo_url)
     async function fetchTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false`;
       const res = await fetch(url);
@@ -134,7 +149,7 @@
         balance: (Number(t.balance) / 10 ** t.contract_decimals),
         quote: t.quote || 0,
         quoteRate: t.quote_rate || 0,
-        logo: t.logo_url || '',
+        logo: t.logo_url || '', // This is where the logo URL comes from
         contract: t.contract_address
       }));
     }
@@ -145,7 +160,7 @@
       const res = await fetch(url);
       const data = await res.json();
       if (!data.data?.items) return [];
-      return data.data.items.slice(0, 15); // last 15
+      return data.data.items.slice(0, 15);
     }
 
     // Helper: fetch NFTs (with metadata)
@@ -154,7 +169,6 @@
       const res = await fetch(url);
       const data = await res.json();
       const nftItems = data.data?.items?.filter(i => i.nft_data && i.nft_data.length > 0) || [];
-      // Flatten and extract first image
       const nfts = [];
       for (const item of nftItems) {
         for (const nft of item.nft_data) {
@@ -167,10 +181,26 @@
           }
         }
       }
-      return nfts.slice(0, 24); // limit to 24
+      return nfts.slice(0, 24);
     }
 
-    // Render tokens based on showZero toggle
+    // Helper: fetch bridge orders from deBridge
+    async function fetchBridgeOrders(address) {
+      try {
+        const response = await fetch('https://api.debridge.com/api/Orders/filteredList', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userAddress: address })
+        });
+        const data = await response.json();
+        return data.orders || [];
+      } catch (error) {
+        console.error('Failed to fetch bridge orders:', error);
+        return [];
+      }
+    }
+
+    // Render tokens with logos
     function renderTokens(tokens) {
       let filtered = tokens;
       if (!showZero) {
@@ -187,7 +217,10 @@
           const row = document.createElement('tr');
           row.className = 'token-row';
           row.innerHTML = `
-            <td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
+            <td class="p-4 flex items-center gap-3">
+              <img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'">
+              <div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div>
+            </td>
             <td class="p-4 font-mono">${t.balance.toFixed(6)}</td>
             <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
             <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
@@ -197,7 +230,60 @@
       }
     }
 
-    // Render transactions
+    // Render bridge orders
+    function renderBridgeOrders(orders) {
+      bridgeTableBody.innerHTML = '';
+      if (orders.length === 0) {
+        bridgeTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No bridge orders found</td></tr>`;
+        return;
+      }
+      orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.className = 'tx-row';
+        const fromChain = order.srcChainName || order.sourceChainId;
+        const toChain = order.dstChainName || order.destinationChainId;
+        const amount = order.amountUSD ? `$${parseFloat(order.amountUSD).toFixed(2)}` : order.amount || 'N/A';
+        const status = order.status || 'Completed';
+        
+        row.innerHTML = `
+          <td class="p-4 font-mono text-sm">${order.orderId ? order.orderId.slice(0,8)+'...' : 'N/A'}</td>
+          <td class="p-4">${fromChain} → ${toChain}</td>
+          <td class="p-4">${amount}</td>
+          <td class="p-4"><span class="px-2 py-1 rounded-full text-xs ${status === 'Completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${status}</span></td>
+        `;
+        bridgeTableBody.appendChild(row);
+      });
+    }
+
+    // Main loader
+    async function loadPortfolio(address, chainId) {
+      loadingDiv.classList.remove('hidden');
+      contentDiv.classList.add('hidden');
+      try {
+        // Fetch everything in parallel
+        const [tokens, txs, nfts, bridgeOrders] = await Promise.all([
+          fetchTokens(address, chainId),
+          fetchTransactions(address, chainId),
+          fetchNFTs(address, chainId),
+          fetchBridgeOrders(address)
+        ]);
+        
+        allTokens = tokens;
+        renderTokens(allTokens);
+        renderTransactions(txs);
+        renderNFTs(nfts);
+        renderBridgeOrders(bridgeOrders);
+        
+        contentDiv.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        alert('Error loading portfolio. Check console or API key.');
+      } finally {
+        loadingDiv.classList.add('hidden');
+      }
+    }
+
+    // Render transactions (keep your existing implementation)
     function renderTransactions(txs) {
       txTableBody.innerHTML = '';
       if (txs.length === 0) {
@@ -220,7 +306,7 @@
       });
     }
 
-    // Render NFTs
+    // Render NFTs (keep your existing implementation)
     function renderNFTs(nfts) {
       nftGrid.innerHTML = '';
       if (nfts.length === 0) {
@@ -237,30 +323,6 @@
         `;
         nftGrid.appendChild(card);
       });
-    }
-
-    // Main loader
-    async function loadPortfolio(address, chainId) {
-      loadingDiv.classList.remove('hidden');
-      contentDiv.classList.add('hidden');
-      try {
-        // Fetch everything in parallel
-        const [tokens, txs, nfts] = await Promise.all([
-          fetchTokens(address, chainId),
-          fetchTransactions(address, chainId),
-          fetchNFTs(address, chainId)
-        ]);
-        allTokens = tokens;
-        renderTokens(allTokens);
-        renderTransactions(txs);
-        renderNFTs(nfts);
-        contentDiv.classList.remove('hidden');
-      } catch (err) {
-        console.error(err);
-        alert('Error loading portfolio. Check console or API key.');
-      } finally {
-        loadingDiv.classList.add('hidden');
-      }
     }
 
     // Toggle zero balance
