@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | DeFi Analytics</title>
+  <title>Adaptive Portfolio | Tabbed Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
@@ -22,7 +22,6 @@
     ::-webkit-scrollbar-track { background: #1e293b; }
     ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
 
-    /* Tabs */
     .tab-btn {
       transition: all 0.2s ease;
       border-bottom: 2px solid transparent;
@@ -47,6 +46,27 @@
     .nft-card { background: rgba(0,0,0,0.4); border-radius: 1rem; overflow: hidden; transition: 0.2s; }
     .nft-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px -5px #00000080; }
     .token-row:hover, .tx-row:hover { background: rgba(255,255,255,0.05); }
+    
+    /* Token placeholder style */
+    .token-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      background: #2d3748;
+      color: white;
+      text-transform: uppercase;
+    }
+    .token-icon img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
   </style>
 </head>
 <body class="text-white">
@@ -63,17 +83,17 @@
       </div>
     </div>
 
-    <!-- Wallet info -->
+    <!-- Wallet info (shown after connect) -->
     <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit"></div>
     
     <!-- Loading spinner -->
     <div id="loading" class="hidden loader"></div>
 
-    <!-- Connect Prompt -->
+    <!-- Connect Prompt (visible when no wallet) -->
     <div id="connectPrompt" class="glass-card text-center py-16 px-6">
       <i class="fas fa-link text-6xl text-emerald-400 mb-4"></i>
       <h2 class="text-2xl font-bold mb-2">Connect Wallet</h2>
-      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet to see your tokens, transactions, NFTs, bridges, and DeFi analytics.</p>
+      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet to see your tokens, transactions, NFTs and bridge activity.</p>
       <button id="promptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect Wallet</button>
     </div>
 
@@ -91,7 +111,6 @@
         <button data-tab="transactions" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-history mr-2"></i>Transactions</button>
         <button data-tab="nfts" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-images mr-2"></i>NFTs</button>
         <button data-tab="bridges" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-exchange-alt mr-2"></i>Bridges</button>
-        <button data-tab="defi" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-chart-pie mr-2"></i>DeFi Analytics</button>
       </div>
 
       <!-- Zero balance toggle (only for tokens tab) -->
@@ -105,33 +124,34 @@
       </div>
 
       <!-- Tab panes -->
-      <!-- Tokens pane -->
       <div id="tokensPane" class="tab-pane active-pane">
         <div class="glass-card overflow-hidden">
           <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-coins text-emerald-400 mr-2"></i>Token Balances</h2></div>
           <div class="overflow-x-auto">
             <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Token</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr></thead>
+              <thead class="bg-black/30 text-gray-300 text-sm">
+                <tr><th class="p-4 text-left">Token</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr>
+              </thead>
               <tbody id="tokenTable" class="divide-y divide-white/5"></tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- Transactions pane -->
       <div id="transactionsPane" class="tab-pane">
         <div class="glass-card overflow-hidden">
           <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-history text-emerald-400 mr-2"></i>Recent Transactions</h2></div>
           <div class="overflow-x-auto">
             <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr></thead>
+              <thead class="bg-black/30 text-gray-300 text-sm">
+                <tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr>
+              </thead>
               <tbody id="txTable" class="divide-y divide-white/5"></tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- NFTs pane -->
       <div id="nftsPane" class="tab-pane">
         <div class="glass-card p-5">
           <h2 class="text-xl font-semibold mb-4"><i class="fas fa-images text-emerald-400 mr-2"></i>NFT Gallery</h2>
@@ -139,49 +159,16 @@
         </div>
       </div>
 
-      <!-- Bridges pane -->
       <div id="bridgesPane" class="tab-pane">
         <div class="glass-card overflow-hidden">
           <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-exchange-alt text-emerald-400 mr-2"></i>Bridge Orders</h2></div>
           <div class="overflow-x-auto">
             <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Order ID</th><th class="p-4 text-left">From → To</th><th class="p-4 text-left">Amount</th><th class="p-4 text-left">Status</th></tr></thead>
+              <thead class="bg-black/30 text-gray-300 text-sm">
+                <tr><th class="p-4 text-left">Order ID</th><th class="p-4 text-left">From → To</th><th class="p-4 text-left">Amount</th><th class="p-4 text-left">Status</th></tr>
+              </thead>
               <tbody id="bridgeTable" class="divide-y divide-white/5"></tbody>
             </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- DeFi Analytics pane (NEW) -->
-      <div id="defiPane" class="tab-pane">
-        <div class="space-y-6">
-          <!-- PnL Card -->
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-line text-emerald-400 mr-2"></i>Profit & Loss (FIFO)</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div><p class="text-gray-400 text-sm">Realized Gain</p><p id="realizedGain" class="text-2xl font-bold text-emerald-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Unrealized Gain</p><p id="unrealizedGain" class="text-2xl font-bold text-blue-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Total Fees</p><p id="totalFees" class="text-2xl font-bold text-yellow-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Net Invested</p><p id="netInvested" class="text-2xl font-bold text-purple-400">$0.00</p></div>
-            </div>
-          </div>
-
-          <!-- Portfolio Distribution by Type -->
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-pie text-emerald-400 mr-2"></i>Portfolio by Type</h2>
-            <div id="portfolioByType" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-          </div>
-
-          <!-- Portfolio Distribution by Chain -->
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-network-wired text-emerald-400 mr-2"></i>Portfolio by Chain</h2>
-            <div id="portfolioByChain" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-          </div>
-
-          <!-- DeFi Positions List -->
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-layer-group text-emerald-400 mr-2"></i>DeFi Positions (8,000+ protocols)</h2>
-            <div id="defiPositionsList" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
           </div>
         </div>
       </div>
@@ -189,9 +176,8 @@
   </div>
 
   <script>
-    // ========== API KEYS ==========
+    // ========== YOUR COVALENT API KEY ==========
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
-    const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
     let userAddress = null;
     let currentChainId = 1;
@@ -214,30 +200,20 @@
     const showZeroCheckbox = document.getElementById('showZeroCheckbox');
     const zeroToggleContainer = document.getElementById('zeroToggleContainer');
 
-    // DeFi pane elements
-    const realizedGainSpan = document.getElementById('realizedGain');
-    const unrealizedGainSpan = document.getElementById('unrealizedGain');
-    const totalFeesSpan = document.getElementById('totalFees');
-    const netInvestedSpan = document.getElementById('netInvested');
-    const portfolioByTypeDiv = document.getElementById('portfolioByType');
-    const portfolioByChainDiv = document.getElementById('portfolioByChain');
-    const defiPositionsListDiv = document.getElementById('defiPositionsList');
-
     // Tab elements
     const tabBtns = document.querySelectorAll('.tab-btn');
     const panes = {
       tokens: document.getElementById('tokensPane'),
       transactions: document.getElementById('transactionsPane'),
       nfts: document.getElementById('nftsPane'),
-      bridges: document.getElementById('bridgesPane'),
-      defi: document.getElementById('defiPane')
+      bridges: document.getElementById('bridgesPane')
     };
 
     function switchTab(tabId) {
       tabBtns.forEach(btn => btn.classList.remove('active'));
       document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
-      Object.values(panes).forEach(pane => pane?.classList.remove('active-pane'));
-      panes[tabId]?.classList.add('active-pane');
+      Object.values(panes).forEach(pane => pane.classList.remove('active-pane'));
+      panes[tabId].classList.add('active-pane');
       if (tabId === 'tokens') {
         zeroToggleContainer.style.display = 'flex';
       } else {
@@ -252,84 +228,38 @@
       });
     });
 
-    // Zerion API helper with Basic Auth
-    async function zerionFetch(endpoint, address, params = '') {
-      if (!ZERION_API_KEY) return null;
-      const url = `https://api.zerion.io/v1/wallets/${address}/${endpoint}?currency=usd${params}`;
-      const auth = btoa(ZERION_API_KEY + ':');
-      const res = await fetch(url, { headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' } });
-      if (!res.ok) return null;
-      return await res.json();
-    }
-
-    // Fetch Zerion PnL data
-    async function fetchPnL(address) {
-      const data = await zerionFetch('pnl', address);
-      if (data?.data?.attributes) {
-        const attrs = data.data.attributes;
-        realizedGainSpan.innerText = `$${attrs.realized_gain?.toFixed(2) || '0.00'}`;
-        unrealizedGainSpan.innerText = `$${attrs.unrealized_gain?.toFixed(2) || '0.00'}`;
-        totalFeesSpan.innerText = `$${attrs.total_fee?.toFixed(2) || '0.00'}`;
-        netInvestedSpan.innerText = `$${attrs.net_invested?.toFixed(2) || '0.00'}`;
+    // Helper to generate a deterministic color from a string
+    function stringToColor(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
       }
+      const hue = Math.abs(hash % 360);
+      return `hsl(${hue}, 70%, 55%)`;
     }
 
-    // Fetch Zerion Portfolio (distribution by type and chain)
-    async function fetchPortfolioDistribution(address) {
-      const data = await zerionFetch('portfolio', address);
-      if (data?.data?.attributes) {
-        const attrs = data.data.attributes;
-        // By type
-        const typeDist = attrs.positions_distribution_by_type || {};
-        portfolioByTypeDiv.innerHTML = '';
-        for (const [type, value] of Object.entries(typeDist)) {
-          const div = document.createElement('div');
-          div.className = 'flex justify-between items-center p-2 rounded-lg bg-white/5';
-          div.innerHTML = `<span class="capitalize">${type}</span><span class="font-mono text-emerald-300">$${value.toFixed(2)}</span>`;
-          portfolioByTypeDiv.appendChild(div);
-        }
-        // By chain
-        const chainDist = attrs.positions_distribution_by_chain || {};
-        portfolioByChainDiv.innerHTML = '';
-        for (const [chain, value] of Object.entries(chainDist)) {
-          if (value > 0) {
-            const div = document.createElement('div');
-            div.className = 'flex justify-between items-center p-2 rounded-lg bg-white/5';
-            div.innerHTML = `<span class="capitalize">${chain.replace(/-/g, ' ')}</span><span class="font-mono text-emerald-300">$${value.toFixed(2)}</span>`;
-            portfolioByChainDiv.appendChild(div);
-          }
-        }
+    // Create token icon element with fallback
+    function createTokenIcon(logoUrl, symbol) {
+      const container = document.createElement('div');
+      container.className = 'token-icon';
+      if (logoUrl && logoUrl !== '') {
+        const img = document.createElement('img');
+        img.src = logoUrl;
+        img.onerror = () => {
+          // If image fails, show placeholder with symbol initials
+          container.innerHTML = symbol ? symbol.slice(0, 2).toUpperCase() : '?';
+          container.style.backgroundColor = stringToColor(symbol || 'token');
+        };
+        container.appendChild(img);
+      } else {
+        // No logo URL – show text placeholder
+        container.innerHTML = symbol ? symbol.slice(0, 2).toUpperCase() : '?';
+        container.style.backgroundColor = stringToColor(symbol || 'token');
       }
+      return container;
     }
 
-    // Fetch Zerion DeFi Positions (complex positions like lending, staking, LP)
-    async function fetchDefiPositions(address) {
-      const data = await zerionFetch('positions', address, '&filter[positions]=only_complex');
-      if (data?.data) {
-        defiPositionsListDiv.innerHTML = '';
-        const positions = data.data;
-        if (positions.length === 0) {
-          defiPositionsListDiv.innerHTML = `<div class="text-center text-gray-400 py-4">No DeFi positions found</div>`;
-          return;
-        }
-        positions.forEach(pos => {
-          const attrs = pos.attributes;
-          const protocol = attrs.protocol_title || 'Unknown';
-          const name = attrs.name || 'Position';
-          const value = attrs.value || 0;
-          const chain = attrs.chain_id || 'ethereum';
-          const div = document.createElement('div');
-          div.className = 'flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/10';
-          div.innerHTML = `
-            <div><span class="font-medium">${protocol}</span><span class="text-gray-400 text-sm ml-2">${name}</span><div class="text-xs text-gray-500">${chain}</div></div>
-            <span class="font-mono text-emerald-300">$${value.toFixed(2)}</span>
-          `;
-          defiPositionsListDiv.appendChild(div);
-        });
-      }
-    }
-
-    // Existing fetch functions (unchanged from previous working version)
+    // Data fetching functions
     async function fetchTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false`;
       const res = await fetch(url);
@@ -384,18 +314,41 @@
       } catch (e) { return []; }
     }
 
-    // Render functions (unchanged)
+    // Render functions
     function renderTokens(tokens) {
       let filtered = showZero ? tokens : tokens.filter(t => t.balance > 0);
       const total = filtered.reduce((sum, t) => sum + t.quote, 0);
       totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       tokenTableBody.innerHTML = '';
       if (filtered.length === 0) {
-        tokenTableBody.innerHTML = `<td><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance. Toggle "Show zero‑balance" to see all.' : ''}</td></tr>`;
+        tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance. Toggle "Show zero‑balance" to see all.' : ''}</td></tr>`;
       } else {
         filtered.forEach(t => {
-          const row = `<tr class="token-row"><td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td><td class="p-4 font-mono">${t.balance.toFixed(6)}</td><td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td><td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td></tr>`;
-          tokenTableBody.insertAdjacentHTML('beforeend', row);
+          const row = document.createElement('tr');
+          row.className = 'token-row';
+          
+          // Create icon container with original logo or unique placeholder
+          const iconElement = createTokenIcon(t.logo, t.symbol);
+          
+          row.innerHTML = `
+            <td class="p-4">
+              <div class="flex items-center gap-3">
+                <div class="token-icon-container"></div>
+                <div>
+                  <div class="font-medium">${t.name || t.symbol}</div>
+                  <div class="text-xs text-gray-400">${t.symbol}</div>
+                </div>
+              </div>
+            </td>
+            <td class="p-4 font-mono">${t.balance.toFixed(6)}</td>
+            <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
+            <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
+          `;
+          // Insert the dynamically created icon into the container
+          const container = row.querySelector('.token-icon-container');
+          if (container) container.appendChild(iconElement);
+          
+          tokenTableBody.appendChild(row);
         });
       }
     }
@@ -407,11 +360,18 @@
         return;
       }
       txs.forEach(tx => {
+        const row = document.createElement('tr');
+        row.className = 'tx-row';
         const date = new Date(tx.block_signed_at).toLocaleString();
         const valueEth = (Number(tx.value) / 1e18).toFixed(6);
         const status = tx.successful ? '✅ Success' : '❌ Failed';
-        const row = `<tr class="tx-row"><td class="p-4 font-mono text-sm"><a href="https://etherscan.io/tx/${tx.tx_hash}" target="_blank" class="text-emerald-400 hover:underline">${tx.tx_hash.slice(0,8)}...${tx.tx_hash.slice(-6)}</a></td><td class="p-4 text-sm">${date}</td><td class="p-4">${valueEth} ETH</td><td class="p-4">${status}</td></tr>`;
-        txTableBody.insertAdjacentHTML('beforeend', row);
+        row.innerHTML = `
+          <td class="p-4 font-mono text-sm"><a href="https://etherscan.io/tx/${tx.tx_hash}" target="_blank" class="text-emerald-400 hover:underline">${tx.tx_hash.slice(0,8)}...${tx.tx_hash.slice(-6)}</a></td>
+          <td class="p-4 text-sm">${date}</td>
+          <td class="p-4">${valueEth} ETH</td>
+          <td class="p-4">${status}</td>
+        `;
+        txTableBody.appendChild(row);
       });
     }
 
@@ -422,8 +382,14 @@
         return;
       }
       nfts.forEach(nft => {
-        const card = `<div class="nft-card"><img src="${nft.image}" class="w-full h-32 object-cover" onerror="this.src='https://placehold.co/400x400?text=No+Image'"><div class="p-2 text-xs truncate">${nft.name}</div><div class="p-2 text-xs text-gray-400 truncate">${nft.collection}</div></div>`;
-        nftGrid.insertAdjacentHTML('beforeend', card);
+        const card = document.createElement('div');
+        card.className = 'nft-card';
+        card.innerHTML = `
+          <img src="${nft.image}" class="w-full h-32 object-cover" onerror="this.src='https://placehold.co/400x400?text=No+Image'">
+          <div class="p-2 text-xs truncate">${nft.name}</div>
+          <div class="p-2 text-xs text-gray-400 truncate">${nft.collection}</div>
+        `;
+        nftGrid.appendChild(card);
       });
     }
 
@@ -434,16 +400,22 @@
         return;
       }
       orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.className = 'tx-row';
         const fromChain = order.srcChainName || order.sourceChainId;
         const toChain = order.dstChainName || order.destinationChainId;
         const amount = order.amountUSD ? `$${parseFloat(order.amountUSD).toFixed(2)}` : order.amount || 'N/A';
         const status = order.status || 'Completed';
-        const row = `<tr class="tx-row"><td class="p-4 font-mono text-sm">${order.orderId ? order.orderId.slice(0,8)+'...' : 'N/A'}</td><td class="p-4">${fromChain} → ${toChain}</td><td class="p-4">${amount}</td><td class="p-4"><span class="px-2 py-1 rounded-full text-xs ${status === 'Completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${status}</span></td></tr>`;
-        bridgeTableBody.insertAdjacentHTML('beforeend', row);
+        row.innerHTML = `
+          <td class="p-4 font-mono text-sm">${order.orderId ? order.orderId.slice(0,8)+'...' : 'N/A'}</td>
+          <td class="p-4">${fromChain} → ${toChain}</td>
+          <td class="p-4">${amount}</td>
+          <td class="p-4"><span class="px-2 py-1 rounded-full text-xs ${status === 'Completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${status}</span></td>
+        `;
+        bridgeTableBody.appendChild(row);
       });
     }
 
-    // Main loader with Zerion data
     async function loadPortfolio(address, chainId) {
       loadingDiv.classList.remove('hidden');
       contentDiv.classList.add('hidden');
@@ -459,12 +431,6 @@
         renderTransactions(txs);
         renderNFTs(nfts);
         renderBridgeOrders(bridgeOrders);
-
-        // Load Zerion analytics (don't block main load)
-        fetchPnL(address);
-        fetchPortfolioDistribution(address);
-        fetchDefiPositions(address);
-
         contentDiv.classList.remove('hidden');
         switchTab('tokens');
       } catch (err) {
@@ -475,7 +441,6 @@
       }
     }
 
-    // Wallet connection
     async function connectWallet() {
       if (!window.ethereum) {
         alert('Install MetaMask or another EVM wallet');
@@ -512,6 +477,7 @@
     connectBtn.onclick = connectWallet;
     disconnectBtn.onclick = disconnectWallet;
     promptConnectBtn.onclick = connectWallet;
+
     showZeroCheckbox.addEventListener('change', (e) => {
       showZero = e.target.checked;
       if (allTokens.length) renderTokens(allTokens);
@@ -531,7 +497,7 @@
       });
     }
 
-    // Initial state
+    // Initial state: show connect prompt
     connectPromptDiv.classList.remove('hidden');
     contentDiv.classList.add('hidden');
     disconnectBtn.classList.add('hidden');
