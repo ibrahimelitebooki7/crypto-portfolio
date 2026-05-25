@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Adaptive Portfolio | DeFi Analytics + FIFO P&L</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>UniFi | Portfolio + Swap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -22,634 +22,266 @@
     ::-webkit-scrollbar-track { background: #1e293b; }
     ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
 
-    .tab-btn {
+    /* Menu tabs */
+    .main-tab-btn {
       transition: all 0.2s ease;
       border-bottom: 2px solid transparent;
     }
-    .tab-btn.active {
+    .main-tab-btn.active-main-tab {
       color: #10b981;
       border-bottom-color: #10b981;
       background: rgba(16, 185, 129, 0.1);
     }
-    .tab-pane {
+    .main-pane {
       display: none;
       animation: fadeIn 0.3s ease;
     }
-    .tab-pane.active-pane {
+    .main-pane.active-main-pane {
       display: block;
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    /* NFT grid + portfolio styles */
     .nft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
     .nft-card { background: rgba(0,0,0,0.4); border-radius: 1rem; overflow: hidden; transition: 0.2s; }
     .nft-card:hover { transform: translateY(-4px); box-shadow: 0 10px 20px -5px #00000080; }
     .token-row:hover, .tx-row:hover { background: rgba(255,255,255,0.05); }
-    
-    .token-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 14px;
-      background: #2d3748;
-      color: white;
-      text-transform: uppercase;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .token-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .token-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; background: #2d3748; color: white; text-transform: uppercase; flex-shrink: 0; overflow: hidden; }
+    .token-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* Swap card (glass-panel) */
+    .swap-glass-panel { background: rgba(12, 20, 32, 0.65); backdrop-filter: blur(14px); border: 1px solid rgba(59, 130, 246, 0.2); transition: all 0.25s ease; position: relative; overflow: hidden; border-radius: 1.5rem; }
+    .swap-glass-panel:hover { border-color: #3b82f6; }
+    .token-trigger { transition: all 0.2s; }
+    .toast-notify { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1e293bc9; backdrop-filter: blur(12px); border: 1px solid #3b82f6; border-radius: 40px; padding: 8px 18px; color: white; font-size: 13px; font-weight: 500; z-index: 1000; transition: transform 0.25s ease; pointer-events: none; white-space: nowrap; }
+    .toast-show { transform: translateX(-50%) translateY(0); }
+    .token-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); z-index: 2000; display: flex; align-items: flex-end; justify-content: center; opacity: 0; visibility: hidden; transition: all 0.2s; }
+    .token-modal.active { opacity: 1; visibility: visible; }
+    .token-drawer { background: #0f172fe6; backdrop-filter: blur(20px); border-radius: 32px 32px 0 0; width: 100%; max-width: 480px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1); border-top: 1px solid #3b82f680; }
+    .token-modal.active .token-drawer { transform: translateY(0); }
+    .loading-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; border-top-color: white; animation: spin 0.6s linear infinite; display: inline-block; }
+    .network-warning { background: rgba(239,68,68,0.2); border: 1px solid #ef4444; border-radius: 1rem; padding: 1rem; text-align: center; margin-bottom: 1rem; }
   </style>
 </head>
 <body class="text-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
+    <!-- Header with global connect -->
     <div class="flex flex-wrap justify-between items-center gap-4 mb-8">
       <div class="flex items-center gap-3">
         <i class="fas fa-chart-line text-3xl text-emerald-400"></i>
-        <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">Adaptive Portfolio</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">UniFi • Portfolio & Swap</h1>
       </div>
       <div class="flex gap-3">
-        <button id="connectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-lg"><i class="fas fa-plug"></i> Connect Wallet</button>
-        <button id="disconnectBtn" class="hidden bg-gray-800/80 backdrop-blur-sm border border-gray-700 px-6 py-2.5 rounded-xl font-semibold hover:bg-red-600/30 transition"><i class="fas fa-sign-out-alt"></i> Disconnect</button>
+        <button id="globalConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 shadow-lg"><i class="fas fa-plug"></i> Connect Wallet</button>
+        <button id="globalDisconnectBtn" class="hidden bg-gray-800/80 backdrop-blur-sm border border-gray-700 px-6 py-2.5 rounded-xl font-semibold hover:bg-red-600/30 transition"><i class="fas fa-sign-out-alt"></i> Disconnect</button>
       </div>
     </div>
 
-    <!-- Wallet info -->
-    <div id="walletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit"></div>
-    
-    <div id="loading" class="hidden loader"></div>
+    <!-- Wallet info row -->
+    <div id="globalWalletInfo" class="hidden mb-6 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-sm font-mono backdrop-blur-sm w-fit flex items-center gap-3">
+      <span id="globalWalletAddress"></span>
+      <span id="globalChainBadge" class="px-2 py-0.5 rounded-full text-xs bg-slate-700"></span>
+    </div>
+    <div id="globalLoading" class="hidden loader"></div>
 
     <!-- Connect Prompt -->
-    <div id="connectPrompt" class="glass-card text-center py-16 px-6">
+    <div id="globalConnectPrompt" class="glass-card text-center py-16 px-6">
       <i class="fas fa-link text-6xl text-emerald-400 mb-4"></i>
       <h2 class="text-2xl font-bold mb-2">Connect Wallet</h2>
-      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet to see your tokens, transactions, NFTs, bridges and DeFi analytics.</p>
-      <button id="promptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect Wallet</button>
+      <p class="text-gray-300 max-w-md mx-auto">Connect your wallet to view portfolio (Ethereum) or swap on Arc Testnet.</p>
+      <button id="globalPromptConnectBtn" class="btn-gradient px-6 py-2.5 rounded-xl font-semibold mt-6"><i class="fas fa-plug mr-2"></i>Connect Wallet</button>
     </div>
 
-    <!-- Main content -->
-    <div id="content" class="hidden">
-      <!-- Total value card -->
-      <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center mb-8">
-        <div><p class="text-gray-300 text-sm uppercase tracking-wider">Total Net Worth</p><p id="totalUsd" class="text-5xl md:text-6xl font-bold glow-text">$0.00</p></div>
-        <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Real‑time data</span></div>
+    <!-- Main content after connect -->
+    <div id="globalMainContent" class="hidden">
+      <!-- Main Menu Tabs (Portfolio / Swap) -->
+      <div class="glass-card p-1 mb-8 flex overflow-x-auto whitespace-nowrap">
+        <button data-main-tab="portfolio" class="main-tab-btn active-main-tab flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-chart-pie mr-2"></i>Portfolio Dashboard</button>
+        <button data-main-tab="swap" class="main-tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-exchange-alt mr-2"></i>Swap (Arc Testnet)</button>
       </div>
 
-      <!-- Tabs -->
-      <div class="glass-card p-1 mb-6 flex overflow-x-auto whitespace-nowrap">
-        <button data-tab="tokens" class="tab-btn active flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-coins mr-2"></i>Token Balances</button>
-        <button data-tab="transactions" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-history mr-2"></i>Transactions</button>
-        <button data-tab="nfts" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-images mr-2"></i>NFTs</button>
-        <button data-tab="bridges" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-exchange-alt mr-2"></i>Bridges</button>
-        <button data-tab="defi" class="tab-btn flex-1 py-3 px-4 rounded-xl font-medium transition"><i class="fas fa-chart-line mr-2"></i>DeFi Analytics</button>
-      </div>
-
-      <!-- Zero balance toggle (only for tokens tab) -->
-      <div id="zeroToggleContainer" class="glass-card p-4 flex items-center justify-between mb-6">
-        <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="showZeroCheckbox" class="sr-only peer">
-          <div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-emerald-500 peer-focus:ring-2 peer-focus:ring-emerald-300 transition"></div>
-          <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5"></div>
-        </label>
-      </div>
-
-      <!-- Panes -->
-      <div id="tokensPane" class="tab-pane active-pane">
-        <div class="glass-card overflow-hidden">
-          <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-coins text-emerald-400 mr-2"></i>Token Balances</h2></div>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Token</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr></thead>
-              <tbody id="tokenTable" class="divide-y divide-white/5"></tbody>
-            </table>
-          </div>
+      <!-- PORTFOLIO PANE -->
+      <div id="portfolioPane" class="main-pane active-main-pane">
+        <!-- Total value card (portfolio) -->
+        <div class="glass-card p-6 text-center md:text-left md:flex md:justify-between md:items-center mb-8">
+          <div><p class="text-gray-300 text-sm uppercase tracking-wider">Total Net Worth</p><p id="portfolioTotalUsd" class="text-5xl md:text-6xl font-bold glow-text">$0.00</p></div>
+          <div class="mt-4 md:mt-0"><span class="px-4 py-2 bg-emerald-500/20 rounded-full text-emerald-300 text-sm"><i class="fas fa-shield-alt mr-1"></i> Ethereum Mainnet</span></div>
         </div>
-      </div>
 
-      <div id="transactionsPane" class="tab-pane">
-        <div class="glass-card overflow-hidden">
-          <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-history text-emerald-400 mr-2"></i>Recent Transactions</h2></div>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr></thead>
-              <tbody id="txTable"></tbody>
-            </table>
-          </div>
+        <!-- Portfolio sub-tabs -->
+        <div class="glass-card p-1 mb-6 flex overflow-x-auto whitespace-nowrap">
+          <button data-port-tab="tokens" class="port-tab-btn active flex-1 py-2 px-3 rounded-xl font-medium transition text-sm"><i class="fas fa-coins mr-2"></i>Tokens</button>
+          <button data-port-tab="transactions" class="port-tab-btn flex-1 py-2 px-3 rounded-xl font-medium transition text-sm"><i class="fas fa-history mr-2"></i>Txns</button>
+          <button data-port-tab="nfts" class="port-tab-btn flex-1 py-2 px-3 rounded-xl font-medium transition text-sm"><i class="fas fa-images mr-2"></i>NFTs</button>
+          <button data-port-tab="bridges" class="port-tab-btn flex-1 py-2 px-3 rounded-xl font-medium transition text-sm"><i class="fas fa-exchange-alt mr-2"></i>Bridges</button>
+          <button data-port-tab="defi" class="port-tab-btn flex-1 py-2 px-3 rounded-xl font-medium transition text-sm"><i class="fas fa-chart-line mr-2"></i>DeFi Analytics</button>
         </div>
-      </div>
 
-      <div id="nftsPane" class="tab-pane">
-        <div class="glass-card p-5">
-          <h2 class="text-xl font-semibold mb-4"><i class="fas fa-images text-emerald-400 mr-2"></i>NFT Gallery</h2>
-          <div id="nftGrid" class="nft-grid"></div>
+        <div id="portfolioZeroToggle" class="glass-card p-4 flex items-center justify-between mb-6">
+          <span class="text-sm text-gray-300"><i class="fas fa-filter mr-2"></i>Show zero‑balance tokens?</span>
+          <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="portfolioShowZeroCheckbox" class="sr-only peer"><div class="w-11 h-6 bg-gray-600 rounded-full peer peer-checked:bg-emerald-500 transition"></div><div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5"></div></label>
         </div>
+
+        <!-- portfolio panes -->
+        <div id="portfolioTokensPane" class="port-pane active-pane"><div class="glass-card overflow-hidden"><div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-coins text-emerald-400 mr-2"></i>Token Balances</h2></div><div class="overflow-x-auto"><table class="w-full"><thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Token</th><th class="p-4 text-left">Balance</th><th class="p-4 text-left">Price</th><th class="p-4 text-left">Value (USD)</th></tr></thead><tbody id="portfolioTokenTable"></tbody></table></div></div></div>
+        <div id="portfolioTransactionsPane" class="port-pane"><div class="glass-card overflow-hidden"><div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-history text-emerald-400 mr-2"></i>Recent Transactions</h2></div><div class="overflow-x-auto"><table class="w-full"><thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Tx Hash</th><th class="p-4 text-left">Date</th><th class="p-4 text-left">Value (ETH)</th><th class="p-4 text-left">Status</th></tr></thead><tbody id="portfolioTxTable"></tbody></table></div></div></div>
+        <div id="portfolioNftsPane" class="port-pane"><div class="glass-card p-5"><h2 class="text-xl font-semibold mb-4"><i class="fas fa-images text-emerald-400 mr-2"></i>NFT Gallery</h2><div id="portfolioNftGrid" class="nft-grid"></div></div></div>
+        <div id="portfolioBridgesPane" class="port-pane"><div class="glass-card overflow-hidden"><div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-exchange-alt text-emerald-400 mr-2"></i>Bridge Orders</h2></div><div class="overflow-x-auto"><table class="w-full"><thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Order ID</th><th class="p-4 text-left">From → To</th><th class="p-4 text-left">Amount</th><th class="p-4 text-left">Status</th></tr></thead><tbody id="portfolioBridgeTable"></tbody></table></div></div></div>
+        <div id="portfolioDefiPane" class="port-pane"><div class="space-y-6"><div class="glass-card p-5"><h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-line text-emerald-400 mr-2"></i>Profit & Loss (FIFO)</h2><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"><div><p class="text-gray-400 text-sm">Realized Gain</p><p id="portfolioRealizedGain" class="text-2xl font-bold text-emerald-400">$0.00</p></div><div><p class="text-gray-400 text-sm">Unrealized Gain</p><p id="portfolioUnrealizedGain" class="text-2xl font-bold text-blue-400">$0.00</p></div><div><p class="text-gray-400 text-sm">Total Fees</p><p id="portfolioTotalFees" class="text-2xl font-bold text-yellow-400">$0.00</p></div><div><p class="text-gray-400 text-sm">Net Invested</p><p id="portfolioNetInvested" class="text-2xl font-bold text-purple-400">$0.00</p></div></div></div><div class="glass-card p-5"><h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-pie text-emerald-400 mr-2"></i>Portfolio by Type</h2><div id="portfolioByType" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div></div><div class="glass-card p-5"><h2 class="text-xl font-semibold mb-4"><i class="fas fa-network-wired text-emerald-400 mr-2"></i>Portfolio by Chain</h2><div id="portfolioByChain" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div></div><div class="glass-card p-5"><h2 class="text-xl font-semibold mb-4"><i class="fas fa-layer-group text-emerald-400 mr-2"></i>DeFi Positions (8,000+ protocols)</h2><div id="portfolioDefiPositionsList" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div></div></div></div>
       </div>
 
-      <div id="bridgesPane" class="tab-pane">
-        <div class="glass-card overflow-hidden">
-          <div class="p-5 border-b border-white/10"><h2 class="text-xl font-semibold"><i class="fas fa-exchange-alt text-emerald-400 mr-2"></i>Bridge Orders</h2></div>
-          <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-black/30 text-gray-300 text-sm"><tr><th class="p-4 text-left">Order ID</th><th class="p-4 text-left">From → To</th><th class="p-4 text-left">Amount</th><th class="p-4 text-left">Status</th></tr></thead>
-              <tbody id="bridgeTable"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- DeFi Analytics pane -->
-      <div id="defiPane" class="tab-pane">
-        <div class="space-y-6">
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-line text-emerald-400 mr-2"></i>Profit & Loss (FIFO)</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div><p class="text-gray-400 text-sm">Realized Gain</p><p id="realizedGain" class="text-2xl font-bold text-emerald-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Unrealized Gain</p><p id="unrealizedGain" class="text-2xl font-bold text-blue-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Total Fees</p><p id="totalFees" class="text-2xl font-bold text-yellow-400">$0.00</p></div>
-              <div><p class="text-gray-400 text-sm">Net Invested</p><p id="netInvested" class="text-2xl font-bold text-purple-400">$0.00</p></div>
-            </div>
-          </div>
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-chart-pie text-emerald-400 mr-2"></i>Portfolio by Type</h2>
-            <div id="portfolioByType" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-          </div>
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-network-wired text-emerald-400 mr-2"></i>Portfolio by Chain</h2>
-            <div id="portfolioByChain" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-          </div>
-          <div class="glass-card p-5">
-            <h2 class="text-xl font-semibold mb-4"><i class="fas fa-layer-group text-emerald-400 mr-2"></i>DeFi Positions (8,000+ protocols)</h2>
-            <div id="defiPositionsList" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
-          </div>
+      <!-- SWAP PANE (Arc Testnet) -->
+      <div id="swapPane" class="main-pane">
+        <div id="swapNetworkWarning" class="network-warning hidden"><i class="fas fa-exclamation-triangle mr-2"></i> <span id="swapWarningMsg"></span> <button id="switchToArcBtn" class="ml-3 px-3 py-1 bg-blue-600 rounded-lg text-xs font-semibold">Switch to Arc Testnet</button></div>
+        <div id="swapContainer" class="max-w-lg mx-auto">
+          <!-- swap card content will be injected or built here -->
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Swap Modal (shared) -->
+  <div id="swapTokenModal" class="token-modal"><div class="token-drawer p-5"><div class="flex justify-between items-center mb-4"><h3 class="text-white font-semibold">Select token</h3><button id="swapCloseModalBtn"><i class="fas fa-times text-slate-400"></i></button></div><input type="text" id="swapTokenSearch" placeholder="Search" class="w-full bg-slate-800/80 border border-slate-700 rounded-full px-4 py-2 text-white text-sm mb-3"><div id="swapTokenList" class="max-h-96 overflow-y-auto space-y-2"></div></div></div>
+
+  <div id="globalToast" class="toast-notify">✨ Ready</div>
+
   <script>
-    // ==================== API KEYS ====================
+    // ------------------------- GLOBAL CONNECTION + STATE (ethers v6) -------------------------
+    let globalProvider = null;
+    let globalUserAddress = null;
+    let globalChainId = null;
+    let isConnected = false;
+
+    // Portfolio data state
+    let portfolioTokens = [];
+    let portfolioShowZero = false;
+    let portfolioDefiPositionsCache = [];
+
+    // DOM Elements
+    const globalConnectBtn = document.getElementById('globalConnectBtn');
+    const globalDisconnectBtn = document.getElementById('globalDisconnectBtn');
+    const globalConnectPrompt = document.getElementById('globalConnectPrompt');
+    const globalMainContent = document.getElementById('globalMainContent');
+    const globalWalletInfo = document.getElementById('globalWalletInfo');
+    const globalWalletAddressSpan = document.getElementById('globalWalletAddress');
+    const globalChainBadge = document.getElementById('globalChainBadge');
+    const globalLoading = document.getElementById('globalLoading');
+    const promptConnectBtn = document.getElementById('globalPromptConnectBtn');
+    const globalToast = document.getElementById('globalToast');
+
+    function showToast(msg, isError = false) {
+      globalToast.textContent = msg;
+      globalToast.classList.add('toast-show');
+      globalToast.style.borderColor = isError ? '#ef4444' : '#10b981';
+      setTimeout(() => globalToast.classList.remove('toast-show'), 4000);
+    }
+
+    // API KEYS (portfolio)
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
-    let userAddress = null;
-    let currentChainId = 1;   // Ethereum mainnet
-    let allTokens = [];
-    let showZero = false;
-
-    // Cache for historical prices (simple FIFO computation)
-    let txHistoryCache = [];
-
-    // DOM elements
-    const connectBtn = document.getElementById('connectBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    const promptConnectBtn = document.getElementById('promptConnectBtn');
-    const walletInfo = document.getElementById('walletInfo');
-    const loadingDiv = document.getElementById('loading');
-    const contentDiv = document.getElementById('content');
-    const connectPromptDiv = document.getElementById('connectPrompt');
-    const totalUsdSpan = document.getElementById('totalUsd');
-    const tokenTableBody = document.getElementById('tokenTable');
-    const txTableBody = document.getElementById('txTable');
-    const nftGrid = document.getElementById('nftGrid');
-    const bridgeTableBody = document.getElementById('bridgeTable');
-    const showZeroCheckbox = document.getElementById('showZeroCheckbox');
-    const zeroToggleContainer = document.getElementById('zeroToggleContainer');
-
-    // DeFi elements
-    const realizedGainSpan = document.getElementById('realizedGain');
-    const unrealizedGainSpan = document.getElementById('unrealizedGain');
-    const totalFeesSpan = document.getElementById('totalFees');
-    const netInvestedSpan = document.getElementById('netInvested');
-    const portfolioByTypeDiv = document.getElementById('portfolioByType');
-    const portfolioByChainDiv = document.getElementById('portfolioByChain');
-    const defiPositionsListDiv = document.getElementById('defiPositionsList');
-
-    // Tab switching
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const panes = {
-      tokens: document.getElementById('tokensPane'),
-      transactions: document.getElementById('transactionsPane'),
-      nfts: document.getElementById('nftsPane'),
-      bridges: document.getElementById('bridgesPane'),
-      defi: document.getElementById('defiPane')
-    };
-    function switchTab(tabId) {
-      tabBtns.forEach(btn => btn.classList.remove('active'));
-      document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
-      Object.values(panes).forEach(pane => pane.classList.remove('active-pane'));
-      panes[tabId].classList.add('active-pane');
-      zeroToggleContainer.style.display = tabId === 'tokens' ? 'flex' : 'none';
-    }
-    tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
-
-    // Helper: deterministic color for placeholder
-    function stringToColor(str) {
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-      return `hsl(${Math.abs(hash % 360)}, 70%, 55%)`;
+    async function switchToChain(chainIdHex) {
+      if (!window.ethereum) return false;
+      try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainIdHex }] }); return true; } catch(e) { return false; }
     }
 
-    function createPlaceholderIcon(symbol) {
-      const div = document.createElement('div');
-      div.className = 'token-icon';
-      div.style.backgroundColor = stringToColor(symbol || '?');
-      div.innerText = symbol ? symbol.slice(0, 2).toUpperCase() : '??';
-      return div;
-    }
-
-    // ========== ZERION LOGO FETCH ==========
-    async function fetchZerionLogo(contractAddress, chainId) {
-      if (!contractAddress || contractAddress === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') return null;
-      const url = `https://api.zerion.io/v1/fungibles/?filter[addresses]=${chainId}:${contractAddress}`;
-      try {
-        const response = await fetch(url, {
-          headers: { "Authorization": `Basic ${btoa(ZERION_API_KEY + ':')}` }
-        });
-        if (!response.ok) return null;
-        const json = await response.json();
-        return json.data?.[0]?.attributes?.icon?.url || null;
-      } catch (e) { return null; }
-    }
-
-    async function loadTokenLogo(container, tokenAddress, chainId, symbol, covalentLogo) {
-      const sources = [
-        async () => await fetchZerionLogo(tokenAddress, chainId),
-        () => (chainId === 1 && tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') ? `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png` : null,
-        () => (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') ? `https://token-assets.vercel.app/api/token/${chainId}/${tokenAddress}/logo-32.png` : null,
-        () => symbol ? `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@latest/svg/color/${symbol.toLowerCase()}.svg` : null,
-        () => covalentLogo || null
-      ];
-      for (const source of sources) {
-        try {
-          let url = source();
-          if (url && typeof url.then === 'function') url = await url;
-          if (!url) continue;
-          const img = new Image();
-          await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; img.crossOrigin = "Anonymous"; });
-          container.innerHTML = '';
-          img.className = 'w-full h-full object-cover';
-          container.appendChild(img);
-          return;
-        } catch (e) {}
+    // Refresh portfolio based on current chain (only Ethereum mainnet 0x1)
+    async function refreshPortfolio() {
+      if (!globalUserAddress || !globalProvider) return;
+      if (globalChainId !== 1) {
+        document.getElementById('portfolioTotalUsd').innerText = "$0.00";
+        showToast("Portfolio requires Ethereum Mainnet. Switch network.", true);
+        return;
       }
+      globalLoading.classList.remove('hidden');
+      try {
+        const tokens = await fetchPortfolioTokens(globalUserAddress, 1);
+        portfolioTokens = tokens;
+        renderPortfolioTokens();
+        const total = tokens.reduce((s,t)=>s+t.quote,0);
+        document.getElementById('portfolioTotalUsd').innerText = `$${total.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        await loadPortfolioTransactions();
+        await loadPortfolioNFTs();
+        await loadPortfolioBridges();
+        await loadPortfolioDefiAnalytics();
+      } catch(err) { console.error(err); showToast("Portfolio load error", true); } finally { globalLoading.classList.add('hidden'); }
     }
 
-    // ========== COVALENT DATA ==========
-    async function fetchTokens(address, chainId) {
+    // Portfolio data fetching
+    async function fetchPortfolioTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const res = await fetch(url); const data = await res.json();
       if (!data.data?.items) return [];
-      return data.data.items.map(t => ({
-        name: t.contract_name || t.contract_ticker_symbol || 'Unknown',
-        symbol: t.contract_ticker_symbol || '?',
-        balance: (Number(t.balance) / 10 ** t.contract_decimals),
-        quote: t.quote || 0,
-        quoteRate: t.quote_rate || 0,
-        logo: t.logo_url || '',
-        contractAddress: t.contract_address
-      }));
+      return data.data.items.map(t => ({ name: t.contract_name || t.contract_ticker_symbol || 'Unknown', symbol: t.contract_ticker_symbol || '?', balance: (Number(t.balance) / 10 ** t.contract_decimals), quote: t.quote || 0, quoteRate: t.quote_rate || 0, logo: t.logo_url || '', contractAddress: t.contract_address }));
     }
-
-    async function fetchAllTransactions(address, chainId) {
+    async function fetchPortfolioTxs(address, chainId, limit=15) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/?key=${COVALENT_API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      return data.data?.items || [];
+      const res = await fetch(url); const data = await res.json(); return (data.data?.items || []).slice(0,limit);
     }
-
-    async function fetchTransactions(address, chainId, limit = 15) {
-      const all = await fetchAllTransactions(address, chainId);
-      return all.slice(0, limit);
-    }
-
-    async function fetchNFTs(address, chainId) {
+    async function fetchPortfolioNFTs(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=true`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const nftItems = data.data?.items?.filter(i => i.nft_data?.length) || [];
-      const nfts = [];
-      for (const item of nftItems) {
-        for (const nft of item.nft_data) {
-          if (nft.external_data?.image) {
-            nfts.push({
-              name: nft.external_data.name || `${item.contract_name} #${nft.token_id}`,
-              image: nft.external_data.image,
-              collection: item.contract_name
-            });
-          }
-        }
-      }
-      return nfts.slice(0, 24);
+      const res = await fetch(url); const data = await res.json(); const nftItems = data.data?.items?.filter(i => i.nft_data?.length) || []; let nfts = [];
+      for(const item of nftItems) for(const nft of item.nft_data) if(nft.external_data?.image) nfts.push({ name: nft.external_data.name || `${item.contract_name} #${nft.token_id}`, image: nft.external_data.image, collection: item.contract_name });
+      return nfts.slice(0,24);
     }
-
-    async function fetchBridgeOrders(address) {
+    async function fetchPortfolioBridges(address) { try { const res = await fetch('https://api.debridge.com/api/Orders/filteredList', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userAddress: address }) }); const data = await res.json(); return data.orders || []; } catch(e) { return []; } }
+    async function loadPortfolioTransactions() { const txs = await fetchPortfolioTxs(globalUserAddress, 1, 15); const tbody = document.getElementById('portfolioTxTable'); tbody.innerHTML = txs.map(tx => `<tr class="tx-row"><td class="p-4 font-mono text-sm"><a href="https://etherscan.io/tx/${tx.tx_hash}" target="_blank" class="text-emerald-400">${tx.tx_hash.slice(0,8)}...</a></td><td class="p-4">${new Date(tx.block_signed_at).toLocaleString()}</td><td class="p-4">${(Number(tx.value)/1e18).toFixed(6)} ETH</td><td class="p-4">${tx.successful ? '✅ Success' : '❌ Failed'}</td></tr>`).join(''); if(!txs.length) tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400">No txns</td></tr>'; }
+    async function loadPortfolioNFTs() { const nfts = await fetchPortfolioNFTs(globalUserAddress, 1); const grid = document.getElementById('portfolioNftGrid'); grid.innerHTML = nfts.map(n => `<div class="nft-card"><img src="${n.image}" class="w-full h-32 object-cover" onerror="this.src='https://placehold.co/400x400?text=No+Image'"><div class="p-2 text-xs truncate">${escapeHtml(n.name)}</div><div class="p-2 text-xs text-gray-400">${escapeHtml(n.collection)}</div></div>`).join(''); if(!nfts.length) grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No NFTs</div>'; }
+    async function loadPortfolioBridges() { const orders = await fetchPortfolioBridges(globalUserAddress); const tbody = document.getElementById('portfolioBridgeTable'); tbody.innerHTML = orders.map(o => `<tr class="tx-row"><td class="p-4 font-mono text-sm">${o.orderId?.slice(0,8)||'N/A'}</td><td class="p-4">${o.srcChainName||''} → ${o.dstChainName||''}</td><td class="p-4">${o.amountUSD ? `$${parseFloat(o.amountUSD).toFixed(2)}` : o.amount||'N/A'}</td><td class="p-4"><span class="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">${o.status||'Completed'}</span></td></tr>`).join(''); if(!orders.length) tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400">No bridges</td></tr>'; }
+    async function loadPortfolioDefiAnalytics() {
       try {
-        const response = await fetch('https://api.debridge.com/api/Orders/filteredList', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userAddress: address })
-        });
-        const data = await response.json();
-        return data.orders || [];
-      } catch (e) { return []; }
+        const posUrl = `https://api.zerion.io/v1/portfolio/${globalUserAddress}/positions/?currency=usd`;
+        const posRes = await fetch(posUrl, { headers: { "Authorization": `Basic ${btoa(ZERION_API_KEY + ':')}` } });
+        let positions = []; let unrealized = 0;
+        if(posRes.ok) { const posData = await posRes.json(); positions = posData.data || []; for(const p of positions) { const value = parseFloat(p.attributes.value)||0; const cost = parseFloat(p.attributes.cost_basis?.value)||0; unrealized += (value - cost); } }
+        document.getElementById('portfolioRealizedGain').innerText = "$0.00";
+        document.getElementById('portfolioUnrealizedGain').innerText = `$${unrealized.toFixed(2)}`;
+        document.getElementById('portfolioTotalFees').innerText = "$0.00";
+        document.getElementById('portfolioNetInvested').innerText = "$0.00";
+        const byType = {}; portfolioTokens.forEach(t => { if(t.quote > 0) { let type = 'Other'; if(t.symbol==='ETH') type='L1'; else if(['USDC','USDT','DAI'].includes(t.symbol)) type='Stablecoin'; else if(['AAVE','UNI','LINK'].includes(t.symbol)) type='DeFi'; else if(['PEPE','SHIB'].includes(t.symbol)) type='Meme'; byType[type] = (byType[type]||0)+t.quote; } });
+        const typeDiv = document.getElementById('portfolioByType'); typeDiv.innerHTML = Object.entries(byType).map(([k,v]) => `<div class="bg-gray-800/50 p-3 rounded-xl text-center"><div class="text-emerald-400 text-xl font-bold">$${v.toFixed(2)}</div><div class="text-xs text-gray-300">${k}</div></div>`).join(''); if(!Object.keys(byType).length) typeDiv.innerHTML = '<div class="text-gray-400 col-span-full">No data</div>';
+        const chainDiv = document.getElementById('portfolioByChain'); chainDiv.innerHTML = `<div class="bg-gray-800/50 p-3 rounded-xl text-center"><div class="text-emerald-400 text-xl font-bold">$${portfolioTokens.reduce((s,t)=>s+t.quote,0).toFixed(2)}</div><div class="text-xs text-gray-300">Ethereum</div></div>`;
+        const defiDiv = document.getElementById('portfolioDefiPositionsList'); defiDiv.innerHTML = positions.length ? positions.map(p => `<div class="bg-gray-800/30 p-3 rounded-xl flex justify-between"><div><span class="font-semibold">${p.attributes.protocol?.name||'Unknown'}</span><div class="text-xs text-gray-400">${p.attributes.name||'Position'}</div></div><div class="text-emerald-400">$${parseFloat(p.attributes.value||0).toFixed(2)}</div></div>`).join('') : '<div class="text-gray-400 text-center p-4">No DeFi positions</div>';
+      } catch(e) { console.warn(e); }
     }
+    function renderPortfolioTokens() { let filtered = portfolioShowZero ? portfolioTokens : portfolioTokens.filter(t => t.balance > 0); const tbody = document.getElementById('portfolioTokenTable'); tbody.innerHTML = filtered.map(t => `<tr class="token-row"><td class="p-4"><div class="flex items-center gap-3"><div class="token-icon" style="background:#2d3748;">${t.symbol.slice(0,2)}</div><div><div class="font-medium">${escapeHtml(t.name)}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></div></td><td class="p-4 font-mono">${t.balance.toFixed(6)}</td><td class="p-4">$${t.quoteRate?t.quoteRate.toFixed(6):'0'}</td><td class="p-4 font-semibold text-emerald-300">$${t.quote?t.quote.toFixed(2):'0.00'}</td></tr>`).join(''); if(!filtered.length) tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens</td></tr>'; }
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
 
-    // ========== DeFi Analytics: FIFO P&L, Fees, Net Invested ==========
-    async function computeDeFiAnalytics(address, chainId) {
-      // 1. Get all transactions (for fee calculation and transfer history)
-      const allTxs = await fetchAllTransactions(address, chainId);
-      let totalFeesUSD = 0;
-      let netInflowETH = 0; // in ETH (native)
-      
-      // Process each transaction for fees and net inflows
-      for (const tx of allTxs) {
-        // Fees: gas spent in ETH * gas price in ETH => USD
-        const gasUsed = parseFloat(tx.gas_spent) || 0;
-        const gasPrice = parseFloat(tx.gas_price) || 0;
-        const feeEth = (gasUsed * gasPrice) / 1e18;
-        const feeUsd = feeEth * (tx.quote_rate || 0);
-        totalFeesUSD += feeUsd;
-        
-        // Net invested: sum of native ETH incoming minus outgoing (excluding internal transfers)
-        // For simplicity: value_transfer > 0 means incoming ETH, negative outgoing
-        if (tx.value_transfer && tx.value_transfer !== '0') {
-          const valueEth = parseFloat(tx.value) / 1e18;
-          if (tx.from === address) netInflowETH -= valueEth;   // sent out
-          if (tx.to === address) netInflowETH += valueEth;     // received
-        }
-      }
-      // Convert net invested to USD (using current ETH price from token list or coingecko)
-      const ethToken = allTokens.find(t => t.symbol === 'ETH');
-      const ethPrice = ethToken ? ethToken.quoteRate : 0;
-      const netInvestedUSD = netInflowETH * ethPrice;
-      
-      // 2. Get DeFi positions from Zerion to compute unrealized gain
-      let unrealizedGain = 0;
-      let defiPositions = [];
-      try {
-        const positionsUrl = `https://api.zerion.io/v1/portfolio/${address}/positions/?currency=usd`;
-        const posRes = await fetch(positionsUrl, {
-          headers: { "Authorization": `Basic ${btoa(ZERION_API_KEY + ':')}` }
-        });
-        if (posRes.ok) {
-          const posData = await posRes.json();
-          defiPositions = posData.data || [];
-          for (const pos of defiPositions) {
-            const value = parseFloat(pos.attributes.value) || 0;
-            const costBasis = parseFloat(pos.attributes.cost_basis?.value) || 0;
-            unrealizedGain += (value - costBasis);
-          }
-        }
-      } catch (e) { console.warn("Zerion positions error", e); }
-      
-      // 3. Realized Gain: simplified FIFO from token transfers (sell events)
-      // We'll track all token transfers (ERC20) and compute gain/loss when a token leaves
-      let realizedGain = 0;
-      // Fetch all ERC20 transfers from Covalent (requires another endpoint? We'll use transactions and decode logs)
-      // For simplicity, we'll use the existing allTxs and estimate realized gain from token sales
-      // This is a simplified demo; a full FIFO would need per-token cost basis tracking.
-      // We'll compute from token transfers where "to" is the wallet (buy) and "from" is wallet (sell)
-      // Using Covalent's transfers endpoint would be more accurate, but for brevity, we'll approximate.
-      // Here we'll just set a placeholder and rely on Zerion's realized gain if available.
-      // In practice, you'd need to fetch all token transfers via Covalent's /transfers_v2/ endpoint.
-      // For this demo, we'll show 0 and note that it's under construction.
-      realizedGain = 0; // Can be extended
-      
-      return { realizedGain, unrealizedGain, totalFeesUSD, netInvestedUSD, defiPositions };
-    }
-    
-    // Portfolio by Type: classify tokens based on symbol
-    function classifyTokenType(symbol) {
-      const lower = symbol.toLowerCase();
-      if (lower === 'eth' || lower === 'weth') return 'L1';
-      if (['usdc', 'usdt', 'dai', 'busd', 'tusd', 'usdp', 'frax'].includes(lower)) return 'Stablecoin';
-      if (['aave', 'comp', 'uni', 'link', 'mkr', 'crv', 'bal', 'lido'].includes(lower)) return 'DeFi';
-      if (lower === 'pepe' || lower === 'shib' || lower === 'doge' || lower === 'floki') return 'Meme';
-      if (lower === 'wbtc' || lower === 'renbtc' || lower === 'btc') return 'BTC';
-      return 'Other';
-    }
-    
-    function renderPortfolioByType(tokens) {
-      const typeMap = new Map();
-      tokens.forEach(t => {
-        if (t.quote > 0) {
-          const type = classifyTokenType(t.symbol);
-          typeMap.set(type, (typeMap.get(type) || 0) + t.quote);
-        }
-      });
-      portfolioByTypeDiv.innerHTML = '';
-      for (const [type, value] of typeMap.entries()) {
-        const div = document.createElement('div');
-        div.className = 'bg-gray-800/50 p-3 rounded-xl text-center';
-        div.innerHTML = `<div class="text-emerald-400 text-xl font-bold">$${value.toFixed(2)}</div><div class="text-xs text-gray-300">${type}</div>`;
-        portfolioByTypeDiv.appendChild(div);
-      }
-      if (typeMap.size === 0) portfolioByTypeDiv.innerHTML = '<div class="text-gray-400 col-span-full">No data</div>';
-    }
-    
-    function renderPortfolioByChain(tokens) {
-      // For now we only support Ethereum mainnet; but we can show chain name
-      const totalValue = tokens.reduce((sum, t) => sum + t.quote, 0);
-      portfolioByChainDiv.innerHTML = `
-        <div class="bg-gray-800/50 p-3 rounded-xl text-center">
-          <div class="text-emerald-400 text-xl font-bold">$${totalValue.toFixed(2)}</div>
-          <div class="text-xs text-gray-300">Ethereum</div>
-        </div>
-      `;
-    }
-    
-    function renderDefiPositions(positions) {
-      defiPositionsListDiv.innerHTML = '';
-      if (!positions || positions.length === 0) {
-        defiPositionsListDiv.innerHTML = '<div class="text-gray-400 text-center p-4">No DeFi positions found</div>';
-        return;
-      }
-      positions.forEach(pos => {
-        const attributes = pos.attributes;
-        const protocol = attributes.protocol?.name || 'Unknown';
-        const name = attributes.name || 'Position';
-        const value = parseFloat(attributes.value) || 0;
-        const cost = parseFloat(attributes.cost_basis?.value) || 0;
-        const gain = value - cost;
-        const card = document.createElement('div');
-        card.className = 'bg-gray-800/30 p-3 rounded-xl flex justify-between items-center';
-        card.innerHTML = `
-          <div><span class="font-semibold">${protocol}</span><div class="text-xs text-gray-400">${name}</div></div>
-          <div class="text-right"><span class="text-emerald-400">$${value.toFixed(2)}</span><br><span class="text-xs ${gain >=0 ? 'text-green-400' : 'text-red-400'}">${gain >=0 ? '+' : ''}$${gain.toFixed(2)}</span></div>
-        `;
-        defiPositionsListDiv.appendChild(card);
-      });
-    }
+    // ======================== SWAP MODULE (Refactored ethers v6 + Arc) ========================
+    let swapSelectedFrom = "USDC", swapSelectedTo = "EURC", swapSlippage = 0.5, swapProcessing = false, swapBalances = { USDC: 0, EURC: 0 };
+    const ARC_CHAIN_ID = 5042002; const USDC_ADDRESS = '0x3600000000000000000000000000000000000000'; const EURC_ADDRESS = '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a';
+    const ERC20_ABI_SWAP = ["function balanceOf(address owner) view returns (uint256)", "function decimals() view returns (uint8)", "function symbol() view returns (string)"];
+    let swapContracts = {};
+    let swapInitialized = false;
 
-    // ========== RENDER FUNCTIONS ==========
-    function renderTokens(tokens) {
-      let filtered = showZero ? tokens : tokens.filter(t => t.balance > 0);
-      const total = filtered.reduce((sum, t) => sum + t.quote, 0);
-      totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      tokenTableBody.innerHTML = '';
-      if (filtered.length === 0) {
-        tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance.' : ''}</td></tr>`;
-        return;
-      }
-      filtered.forEach(t => {
-        const row = document.createElement('tr');
-        row.className = 'token-row';
-        const iconContainer = document.createElement('div');
-        iconContainer.className = 'token-icon';
-        iconContainer.appendChild(createPlaceholderIcon(t.symbol));
-        row.innerHTML = `
-          <td class="p-4"><div class="flex items-center gap-3"><div class="token-icon-wrapper"></div><div><div class="font-medium">${escapeHtml(t.name)}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></div></td>
-          <td class="p-4 font-mono">${t.balance.toFixed(6)}</td>
-          <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
-          <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
-        `;
-        const wrapper = row.querySelector('.token-icon-wrapper');
-        if (wrapper) wrapper.appendChild(iconContainer);
-        tokenTableBody.appendChild(row);
-        if (t.contractAddress && t.contractAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')
-          loadTokenLogo(iconContainer, t.contractAddress, currentChainId, t.symbol, t.logo);
-        else if (t.symbol === 'ETH')
-          loadTokenLogo(iconContainer, null, currentChainId, 'ETH', 'https://cdn.jsdelivr.net/npm/cryptocurrency-icons@latest/svg/color/eth.svg');
-      });
-    }
+    async function initSwapContracts() { if(!globalProvider) return; swapContracts.USDC = new ethers.Contract(USDC_ADDRESS, ERC20_ABI_SWAP, globalProvider); swapContracts.EURC = new ethers.Contract(EURC_ADDRESS, ERC20_ABI_SWAP, globalProvider); }
+    async function fetchSwapBalances() { if(!globalUserAddress || globalChainId !== ARC_CHAIN_ID) return; try { for(const sym of ['USDC','EURC']) { const contract = swapContracts[sym]; if(contract) { const bal = await contract.balanceOf(globalUserAddress); const dec = await contract.decimals(); swapBalances[sym] = parseFloat(ethers.formatUnits(bal, dec)); } } } catch(e) { console.warn(e); } updateSwapUI(); }
+    function updateSwapUI() { if(!swapInitialized) return; document.getElementById('swapFromBalance').innerText = `${swapBalances[swapSelectedFrom]?.toFixed(4) || 0} ${swapSelectedFrom}`; document.getElementById('swapToBalance').innerText = `${swapBalances[swapSelectedTo]?.toFixed(4) || 0} ${swapSelectedTo}`; updateSwapQuote(); }
+    function updateSwapQuote() { const amount = parseFloat(document.getElementById('swapAmountInput')?.value || 0); if(isNaN(amount) || amount<=0) { document.getElementById('swapReceiveField').value = ''; document.getElementById('swapMinReceive').innerText = 'min receive: —'; return; } const rate = (swapSelectedFrom === 'USDC' && swapSelectedTo === 'EURC') ? 0.978 : (swapSelectedFrom === 'EURC' && swapSelectedTo === 'USDC') ? 1.023 : 1; const out = amount * rate; const minRecv = out * (1 - swapSlippage/100); document.getElementById('swapReceiveField').value = out.toFixed(6); document.getElementById('swapMinReceive').innerText = `min receive: ${minRecv.toFixed(6)} ${swapSelectedTo}`; document.getElementById('swapRateDynamic').innerText = swapSelectedFrom === 'USDC' ? `1 USDC ≈ 0.978 EURC` : `1 EURC ≈ 1.023 USDC`; document.getElementById('swapSlippageValue').innerText = `${swapSlippage}%`; }
 
-    function renderTransactions(txs) {
-      txTableBody.innerHTML = '';
-      if (!txs.length) { txTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No transactions found</td></tr>`; return; }
-      txs.forEach(tx => {
-        const row = document.createElement('tr');
-        row.className = 'tx-row';
-        const date = new Date(tx.block_signed_at).toLocaleString();
-        const valueEth = (Number(tx.value) / 1e18).toFixed(6);
-        row.innerHTML = `
-          <td class="p-4 font-mono text-sm"><a href="https://etherscan.io/tx/${tx.tx_hash}" target="_blank" class="text-emerald-400 hover:underline">${tx.tx_hash.slice(0,8)}...${tx.tx_hash.slice(-6)}</a></td>
-          <td class="p-4 text-sm">${date}</td>
-          <td class="p-4">${valueEth} ETH</td>
-          <td class="p-4">${tx.successful ? '✅ Success' : '❌ Failed'}</td>
-        `;
-        txTableBody.appendChild(row);
-      });
-    }
+    async function executeSwap() { if(!globalUserAddress || swapProcessing) return; const amount = parseFloat(document.getElementById('swapAmountInput').value); if(isNaN(amount) || amount<=0 || amount > swapBalances[swapSelectedFrom]) { showToast(`Insufficient ${swapSelectedFrom}`, true); return; } swapProcessing = true; const btn = document.getElementById('swapActionBtn'); btn.disabled = true; document.getElementById('swapBtnText').innerHTML = '<div class="loading-spinner"></div> Preparing...'; try { const backendRes = await fetch('https://arc-testnet-swap.vercel.app/api/swap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenIn: swapSelectedFrom, tokenOut: swapSelectedTo, amountIn: amount.toString(), walletAddress: globalUserAddress }) }); const swapData = await backendRes.json(); if(!backendRes.ok) throw new Error(swapData.error); document.getElementById('swapBtnText').innerHTML = '<div class="loading-spinner"></div> Confirm in wallet'; const tx = { from: globalUserAddress, to: swapData.to, data: swapData.data, value: swapData.value ? BigInt(swapData.value) : 0n, gasPrice: swapData.gasPrice ? BigInt(swapData.gasPrice) : undefined, gasLimit: 500000n }; const signer = await globalProvider.getSigner(); const txResp = await signer.sendTransaction(tx); document.getElementById('swapBtnText').innerHTML = '<div class="loading-spinner"></div> Confirming...'; await txResp.wait(1); showToast(`✅ Swap confirmed!`); await fetchSwapBalances(); document.getElementById('swapBtnText').innerHTML = 'Swap tokens'; } catch(err) { showToast(`Swap failed: ${err.message}`, true); document.getElementById('swapBtnText').innerHTML = 'Swap tokens'; } finally { swapProcessing = false; btn.disabled = false; validateSwapButton(); } }
+    function validateSwapButton() { const btn = document.getElementById('swapActionBtn'); if(!isConnected || globalChainId !== ARC_CHAIN_ID || swapProcessing) btn.disabled = true; else { const amt = parseFloat(document.getElementById('swapAmountInput')?.value || 0); if(amt>0 && amt <= swapBalances[swapSelectedFrom]) btn.disabled = false; else btn.disabled = true; } }
 
-    function renderNFTs(nfts) {
-      nftGrid.innerHTML = '';
-      if (!nfts.length) { nftGrid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No NFTs found</div>'; return; }
-      nfts.forEach(nft => {
-        const card = document.createElement('div');
-        card.className = 'nft-card';
-        card.innerHTML = `<img src="${nft.image}" class="w-full h-32 object-cover" onerror="this.src='https://placehold.co/400x400?text=No+Image'"><div class="p-2 text-xs truncate">${escapeHtml(nft.name)}</div><div class="p-2 text-xs text-gray-400 truncate">${escapeHtml(nft.collection)}</div>`;
-        nftGrid.appendChild(card);
-      });
-    }
+    function buildSwapUI() { document.getElementById('swapContainer').innerHTML = `<div class="swap-glass-panel p-5 md:p-6"><div class="flex justify-between mb-4"><div class="text-xl font-bold">Xroga Swap</div><div class="text-xs px-2 py-1 rounded-full bg-blue-500/20">Arc Testnet</div></div><div class="swap-glass-panel p-4 mb-3"><div class="flex justify-between text-xs text-slate-400"><span>You pay</span><span id="swapFromBalance">—</span></div><div class="flex items-center gap-3 mt-1"><button id="swapFromTokenBtn" class="token-trigger flex items-center gap-2 rounded-full py-2 px-3 bg-slate-800"><span id="swapFromSymbol">USDC</span> <i class="fas fa-chevron-down text-xs"></i></button><input type="number" id="swapAmountInput" value="1.0" class="bg-transparent text-right text-2xl font-medium text-white w-full outline-none"></div><div class="flex justify-end gap-2 mt-2"><button class="swapPercentBtn" data-percent="0.25">25%</button><button class="swapPercentBtn" data-percent="0.5">50%</button><button class="swapPercentBtn" data-percent="0.75">75%</button><button id="swapMaxBtn">MAX</button></div></div><div class="flex justify-center -my-1"><button id="swapFlipBtn" class="bg-slate-800 rounded-full p-2"><i class="fas fa-arrow-down-up text-blue-400"></i></button></div><div class="swap-glass-panel p-4 mt-1"><div class="flex justify-between text-xs text-slate-400"><span>You receive</span><span id="swapToBalance">—</span></div><div class="flex items-center gap-3"><button id="swapToTokenBtn" class="token-trigger flex items-center gap-2 rounded-full py-2 px-3 bg-slate-800"><span id="swapToSymbol">EURC</span> <i class="fas fa-chevron-down text-xs"></i></button><input type="text" id="swapReceiveField" readonly disabled class="bg-transparent text-right text-2xl font-medium text-white/80 w-full"></div><div class="flex justify-between mt-1"><span id="swapMinReceive" class="text-[11px] text-slate-400">—</span></div></div><div class="bg-black/20 rounded-xl px-3 py-2 my-3 flex justify-between text-xs"><span id="swapRateDynamic">1 USDC ≈ 0.978 EURC</span><span>Slippage: <span id="swapSlippageValue">0.5%</span></span></div><button id="swapActionBtn" disabled class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl py-3 font-bold"><span id="swapBtnText">Swap tokens</span></button></div>`; attachSwapEvents(); }
+    function attachSwapEvents() { document.getElementById('swapFromTokenBtn')?.addEventListener('click',()=>openSwapTokenModal('from')); document.getElementById('swapToTokenBtn')?.addEventListener('click',()=>openSwapTokenModal('to')); document.getElementById('swapFlipBtn')?.addEventListener('click',()=>{ let tmp=swapSelectedFrom; swapSelectedFrom=swapSelectedTo; swapSelectedTo=tmp; document.getElementById('swapFromSymbol').innerText=swapSelectedFrom; document.getElementById('swapToSymbol').innerText=swapSelectedTo; updateSwapUI(); }); document.getElementById('swapMaxBtn')?.addEventListener('click',()=>{ if(globalUserAddress) document.getElementById('swapAmountInput').value = swapBalances[swapSelectedFrom]; updateSwapQuote(); validateSwapButton(); }); document.getElementById('swapAmountInput')?.addEventListener('input',()=>{ updateSwapQuote(); validateSwapButton(); }); document.getElementById('swapActionBtn')?.addEventListener('click',executeSwap); document.querySelectorAll('.swapPercentBtn').forEach(btn=>btn.addEventListener('click',()=>{ if(globalUserAddress) { let p=parseFloat(btn.dataset.percent); document.getElementById('swapAmountInput').value = (swapBalances[swapSelectedFrom] * p).toFixed(6); updateSwapQuote(); validateSwapButton(); } })); }
+    function openSwapTokenModal(side) { const modal = document.getElementById('swapTokenModal'); const listDiv = document.getElementById('swapTokenList'); listDiv.innerHTML = `<div class="token-item flex justify-between p-3 rounded-xl hover:bg-slate-700/50 cursor-pointer" data-symbol="USDC" data-side="${side}"><div>USDC - USD Coin</div><div>${swapBalances.USDC.toFixed(4)}</div></div><div class="token-item flex justify-between p-3 rounded-xl hover:bg-slate-700/50 cursor-pointer" data-symbol="EURC" data-side="${side}"><div>EURC - Euro Coin</div><div>${swapBalances.EURC.toFixed(4)}</div></div>`; document.querySelectorAll('.token-item').forEach(el=>el.addEventListener('click',()=>{ const sym = el.dataset.symbol; if(el.dataset.side === 'from') { swapSelectedFrom = sym; document.getElementById('swapFromSymbol').innerText = sym; } else { swapSelectedTo = sym; document.getElementById('swapToSymbol').innerText = sym; } modal.classList.remove('active'); updateSwapUI(); validateSwapButton(); })); modal.classList.add('active'); }
+    document.getElementById('swapCloseModalBtn')?.addEventListener('click',()=>document.getElementById('swapTokenModal').classList.remove('active'));
 
-    function renderBridgeOrders(orders) {
-      bridgeTableBody.innerHTML = '';
-      if (!orders.length) { bridgeTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No bridge orders found</td></tr>`; return; }
-      orders.forEach(order => {
-        const row = document.createElement('tr');
-        row.className = 'tx-row';
-        const fromChain = order.srcChainName || order.sourceChainId;
-        const toChain = order.dstChainName || order.destinationChainId;
-        const amount = order.amountUSD ? `$${parseFloat(order.amountUSD).toFixed(2)}` : order.amount || 'N/A';
-        const status = order.status || 'Completed';
-        row.innerHTML = `
-          <td class="p-4 font-mono text-sm">${order.orderId ? order.orderId.slice(0,8)+'...' : 'N/A'}</td>
-          <td class="p-4">${fromChain} → ${toChain}</td>
-          <td class="p-4">${amount}</td>
-          <td class="p-4"><span class="px-2 py-1 rounded-full text-xs ${status === 'Completed' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${status}</span></td>
-        `;
-        bridgeTableBody.appendChild(row);
-      });
-    }
+    async function refreshSwapModule() { if(!swapInitialized) { buildSwapUI(); swapInitialized = true; } if(!globalUserAddress) return; if(globalChainId !== ARC_CHAIN_ID) { document.getElementById('swapNetworkWarning')?.classList.remove('hidden'); document.getElementById('swapWarningMsg').innerText = `Current network not Arc Testnet. Please switch to swap.`; document.getElementById('swapActionBtn').disabled = true; return; } document.getElementById('swapNetworkWarning')?.classList.add('hidden'); await initSwapContracts(); await fetchSwapBalances(); validateSwapButton(); }
+    document.getElementById('switchToArcBtn')?.addEventListener('click', async()=>{ await switchToChain(`0x${ARC_CHAIN_ID.toString(16)}`); setTimeout(()=>refreshSwapModule(),500); });
 
-    async function loadPortfolio(address, chainId) {
-      loadingDiv.classList.remove('hidden');
-      contentDiv.classList.add('hidden');
-      try {
-        const [tokens, txs, nfts, bridges] = await Promise.all([
-          fetchTokens(address, chainId),
-          fetchTransactions(address, chainId, 15),
-          fetchNFTs(address, chainId),
-          fetchBridgeOrders(address)
-        ]);
-        allTokens = tokens;
-        renderTokens(allTokens);
-        renderTransactions(txs);
-        renderNFTs(nfts);
-        renderBridgeOrders(bridges);
-        
-        // DeFi Analytics
-        const { realizedGain, unrealizedGain, totalFeesUSD, netInvestedUSD, defiPositions } = await computeDeFiAnalytics(address, chainId);
-        realizedGainSpan.innerText = `$${realizedGain.toFixed(2)}`;
-        unrealizedGainSpan.innerText = `$${unrealizedGain.toFixed(2)}`;
-        totalFeesSpan.innerText = `$${totalFeesUSD.toFixed(2)}`;
-        netInvestedSpan.innerText = `$${netInvestedUSD.toFixed(2)}`;
-        renderPortfolioByType(allTokens);
-        renderPortfolioByChain(allTokens);
-        renderDefiPositions(defiPositions);
-        
-        contentDiv.classList.remove('hidden');
-        switchTab('tokens');
-      } catch (err) {
-        console.error(err);
-        alert('Error loading portfolio: ' + err.message);
-      } finally {
-        loadingDiv.classList.add('hidden');
-      }
-    }
-
-    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
-
-    async function connectWallet() {
-      if (!window.ethereum) { alert('Install MetaMask'); return; }
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await provider.send('eth_requestAccounts', []);
-        userAddress = accounts[0];
-        const network = await provider.getNetwork();
-        currentChainId = Number(network.chainId);
-        walletInfo.innerHTML = `<i class="fas fa-wallet mr-2"></i> ${userAddress.slice(0,6)}...${userAddress.slice(-4)} · Chain ID: ${currentChainId}`;
-        walletInfo.classList.remove('hidden');
-        connectBtn.classList.add('hidden');
-        disconnectBtn.classList.remove('hidden');
-        connectPromptDiv.classList.add('hidden');
-        await loadPortfolio(userAddress, currentChainId);
-      } catch (err) { alert('Connection failed: ' + err.message); }
-    }
-
-    function disconnectWallet() {
-      userAddress = null;
-      walletInfo.classList.add('hidden');
-      connectBtn.classList.remove('hidden');
-      disconnectBtn.classList.add('hidden');
-      contentDiv.classList.add('hidden');
-      connectPromptDiv.classList.remove('hidden');
-      allTokens = [];
-    }
-
-    connectBtn.onclick = connectWallet;
-    disconnectBtn.onclick = disconnectWallet;
-    promptConnectBtn.onclick = connectWallet;
-    showZeroCheckbox.addEventListener('change', (e) => { showZero = e.target.checked; if (allTokens.length) renderTokens(allTokens); });
-
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', (chainIdHex) => { currentChainId = parseInt(chainIdHex, 16); if (userAddress) loadPortfolio(userAddress, currentChainId); });
-      window.ethereum.on('accountsChanged', (accounts) => { if (!accounts.length) disconnectWallet(); else if (accounts[0] !== userAddress) { userAddress = accounts[0]; if (userAddress) loadPortfolio(userAddress, currentChainId); } });
-    }
-
-    connectPromptDiv.classList.remove('hidden');
-    contentDiv.classList.add('hidden');
-    disconnectBtn.classList.add('hidden');
+    // Global connect logic
+    async function globalConnect() { if(!window.ethereum) { alert('Install MetaMask'); return; } try { const provider = new ethers.BrowserProvider(window.ethereum); const accounts = await provider.send('eth_requestAccounts', []); globalUserAddress = accounts[0]; globalProvider = provider; const network = await provider.getNetwork(); globalChainId = Number(network.chainId); isConnected = true; globalWalletAddressSpan.innerText = `${globalUserAddress.slice(0,6)}...${globalUserAddress.slice(-4)}`; globalChainBadge.innerText = `Chain: ${globalChainId === 1 ? 'Ethereum' : globalChainId===ARC_CHAIN_ID ? 'Arc' : globalChainId}`; globalWalletInfo.classList.remove('hidden'); globalConnectBtn.classList.add('hidden'); globalDisconnectBtn.classList.remove('hidden'); globalConnectPrompt.classList.add('hidden'); globalMainContent.classList.remove('hidden'); await refreshPortfolio(); await refreshSwapModule(); } catch(e) { showToast(e.message, true); } }
+    function globalDisconnect() { isConnected=false; globalUserAddress=null; globalProvider=null; globalWalletInfo.classList.add('hidden'); globalConnectBtn.classList.remove('hidden'); globalDisconnectBtn.classList.add('hidden'); globalConnectPrompt.classList.remove('hidden'); globalMainContent.classList.add('hidden'); portfolioTokens=[]; }
+    globalConnectBtn.onclick = globalConnect; globalDisconnectBtn.onclick = globalDisconnect; promptConnectBtn.onclick = globalConnect;
+    document.querySelectorAll('.main-tab-btn').forEach(btn=>btn.addEventListener('click',()=>{ document.querySelectorAll('.main-tab-btn').forEach(b=>b.classList.remove('active-main-tab')); btn.classList.add('active-main-tab'); document.querySelectorAll('.main-pane').forEach(p=>p.classList.remove('active-main-pane')); document.getElementById(`${btn.dataset.mainTab}Pane`).classList.add('active-main-pane'); if(btn.dataset.mainTab === 'swap') refreshSwapModule(); if(btn.dataset.mainTab === 'portfolio') refreshPortfolio(); }));
+    document.getElementById('portfolioShowZeroCheckbox')?.addEventListener('change',(e)=>{ portfolioShowZero = e.target.checked; renderPortfolioTokens(); });
+    const portTabs = document.querySelectorAll('.port-tab-btn'); const portPanes = document.querySelectorAll('.port-pane'); portTabs.forEach(btn=>btn.addEventListener('click',()=>{ portTabs.forEach(b=>b.classList.remove('active')); btn.classList.add('active'); const target = btn.dataset.portTab; portPanes.forEach(p=>p.classList.remove('active-pane')); document.getElementById(`portfolio${target.charAt(0).toUpperCase()+target.slice(1)}Pane`).classList.add('active-pane'); }));
+    if(window.ethereum) { window.ethereum.on('chainChanged',()=>window.location.reload()); window.ethereum.on('accountsChanged',(acc)=>{ if(!acc.length) globalDisconnect(); else if(acc[0] !== globalUserAddress) { globalUserAddress = acc[0]; if(globalUserAddress) { refreshPortfolio(); refreshSwapModule(); } } }); }
+    globalConnectPrompt.classList.remove('hidden'); globalMainContent.classList.add('hidden');
   </script>
 </body>
 </html>
