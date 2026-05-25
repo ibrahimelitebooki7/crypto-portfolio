@@ -169,7 +169,7 @@
   </div>
 
   <script>
-    // API keys
+    // ==================== API KEYS ====================
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
@@ -227,8 +227,8 @@
       return div;
     }
 
-    // Attempt to load logo from Zerion API
-    async function loadZerionLogo(contractAddress, chainId) {
+    // ========== ZERION LOGO FETCH (priority source) ==========
+    async function fetchZerionLogo(contractAddress, chainId) {
       if (!contractAddress || contractAddress === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') return null;
       const url = `https://api.zerion.io/v1/fungibles/?filter[addresses]=${chainId}:${contractAddress}`;
       try {
@@ -240,59 +240,36 @@
         const logoUrl = json.data?.[0]?.attributes?.icon?.url;
         return logoUrl || null;
       } catch (e) {
-        console.warn('Zerion fetch failed:', e);
+        console.warn('Zerion logo fetch failed:', e);
         return null;
       }
     }
 
-    // Multi‑source logo loader with Zerion as top priority
+    // Multi‑source logo loader with Zerion as top priority, then fallbacks
     async function loadTokenLogo(container, tokenAddress, chainId, symbol, covalentLogo) {
-      // Priority list of URL generators (first that loads successfully wins)
-      const sources = [];
+      // Priority list (each source either returns a URL string directly or a Promise<string|null>)
+      const sources = [
+        // 1. Zerion API (highest quality)
+        async () => await fetchZerionLogo(tokenAddress, chainId),
+        // 2. Trust Wallet Assets (Ethereum mainnet only)
+        () => (chainId === 1 && tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') 
+          ? `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png` 
+          : null,
+        // 3. yearn tokenAssets
+        () => (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE')
+          ? `https://token-assets.vercel.app/api/token/${chainId}/${tokenAddress}/logo-32.png`
+          : null,
+        // 4. spothq icons (by symbol, SVG)
+        () => symbol ? `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@latest/svg/color/${symbol.toLowerCase()}.svg` : null,
+        // 5. Covalent fallback (if provided)
+        () => covalentLogo || null
+      ];
 
-      // 1. Zerion API (highest quality)
-      if (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-        sources.push(async () => await loadZerionLogo(tokenAddress, chainId));
-      }
-
-      // 2. Trust Wallet Assets (Ethereum mainnet only)
-      if (chainId === 1 && tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-        sources.push(() => `https://assets.trustwalletapp.com/blockchains/ethereum/assets/${tokenAddress}/logo.png`);
-      }
-
-      // 3. yearn tokenAssets
-      if (tokenAddress && tokenAddress !== '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-        sources.push(() => `https://token-assets.vercel.app/api/token/${chainId}/${tokenAddress}/logo-32.png`);
-      }
-
-      // 4. spothq icons (by symbol, SVG)
-      if (symbol) {
-        const sym = symbol.toLowerCase();
-        sources.push(() => `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@latest/svg/color/${sym}.svg`);
-      }
-
-      // 5. Covalent fallback (if provided)
-      if (covalentLogo && covalentLogo !== '') {
-        sources.push(() => covalentLogo);
-      }
-
-      // Try each source sequentially
       for (const source of sources) {
         try {
-          let url;
-          if (typeof source === 'function') {
-            // Check if it's an async function
-            const result = source();
-            if (result instanceof Promise) {
-              url = await result;
-            } else {
-              url = result;
-            }
-          } else {
-            url = source;
-          }
+          let url = source();
+          if (url && typeof url.then === 'function') url = await url;
           if (!url) continue;
-          
           const img = new Image();
           await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -312,7 +289,7 @@
       // If all fail, keep the placeholder (already there)
     }
 
-    // Fetch token balances from Covalent
+    // ========== COVALENT DATA FETCHING ==========
     async function fetchTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}&nft=false`;
       const res = await fetch(url);
@@ -368,14 +345,14 @@
       } catch (e) { return []; }
     }
 
-    // Render token table with multi‑source logo loading (Zerion first)
+    // ========== RENDER FUNCTIONS ==========
     function renderTokens(tokens) {
       let filtered = showZero ? tokens : tokens.filter(t => t.balance > 0);
       const total = filtered.reduce((sum, t) => sum + t.quote, 0);
       totalUsdSpan.innerText = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       tokenTableBody.innerHTML = '';
       if (filtered.length === 0) {
-        tokenTableBody.innerHTML = `<td><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance. Toggle "Show zero‑balance" to see all.' : ''}</td></tr>`;
+        tokenTableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-400">No tokens found${!showZero ? ' with balance. Toggle "Show zero‑balance" to see all.' : ''}</td></tr>`;
         return;
       }
       filtered.forEach(t => {
@@ -411,7 +388,15 @@
       });
     }
 
-    function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+    function escapeHtml(str) { 
+      if (!str) return '';
+      return str.replace(/[&<>]/g, function(m){
+        if(m==='&') return '&amp;';
+        if(m==='<') return '&lt;';
+        if(m==='>') return '&gt;';
+        return m;
+      });
+    }
 
     function renderTransactions(txs) {
       txTableBody.innerHTML = '';
