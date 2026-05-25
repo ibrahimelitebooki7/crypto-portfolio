@@ -4,25 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Adaptive Portfolio | Crypto Dashboard</title>
-  
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * { font-family: 'Inter', sans-serif; }
-    body { background: radial-gradient(circle at 10% 20%, rgba(15, 25, 35, 1) 0%, rgba(5, 10, 20, 1) 100%); min-height: 100vh; }
-    .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 2rem; transition: all 0.3s ease; }
-    .glass-card:hover { border-color: rgba(16, 185, 129, 0.5); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
-    .glow-text { text-shadow: 0 0 12px rgba(16, 185, 129, 0.5); }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-    .token-row:hover { background: rgba(255, 255, 255, 0.05); transition: 0.2s; }
-    .btn-gradient { background: linear-gradient(135deg, #10b981, #059669); transition: transform 0.2s, box-shadow 0.2s; }
-    .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4); }
-    .loader { width: 48px; height: 48px; border: 3px solid rgba(16, 185, 129, 0.2); border-radius: 50%; border-top-color: #10b981; animation: spin 1s ease-in-out infinite; margin: 2rem auto; }
+    body { background: radial-gradient(circle at 10% 20%, #0f1923, #050a14); min-height: 100vh; }
+    .glass-card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; transition: all 0.3s ease; }
+    .glass-card:hover { border-color: #10b98180; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .glow-text { text-shadow: 0 0 12px #10b98180; }
+    .token-row:hover { background: rgba(255,255,255,0.05); }
+    .btn-gradient { background: linear-gradient(135deg, #10b981, #059669); transition: transform 0.2s; }
+    .btn-gradient:hover { transform: scale(1.02); box-shadow: 0 10px 20px -5px #10b98166; }
+    .loader { width: 48px; height: 48px; border: 3px solid #10b98133; border-top-color: #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 2rem auto; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
   </style>
 </head>
 <body class="text-white">
@@ -58,9 +57,8 @@
     </div>
   </div>
 
-    <script>
-  // ========== UNIFIED BACKEND URL ==========
-const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // ========== CONFIG (Your API Keys) ==========
+  <script>
+    // Your API keys (visible but functional)
     const COVALENT_API_KEY = "cqt_rQXRpH6mDQRRgxPfGK84XtT6Dbk8";
     const ZERION_API_KEY = "zk_a9d9950f4d33453288b466833ba98bd8";
 
@@ -79,7 +77,6 @@ const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // =====
     const defiSection = document.getElementById('defiSection');
     const defiListDiv = document.getElementById('defiList');
 
-    // Helper: fetch tokens directly from Covalent
     async function fetchTokens(address, chainId) {
       const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`;
       const res = await fetch(url);
@@ -95,7 +92,6 @@ const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // =====
       }));
     }
 
-    // Zerion DeFi positions
     async function fetchDefi(address) {
       if (!ZERION_API_KEY) return [];
       try {
@@ -109,7 +105,6 @@ const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // =====
       }
     }
 
-    // Load portfolio
     async function loadPortfolio(address, chainId) {
       loadingDiv.classList.remove('hidden');
       contentDiv.classList.add('hidden');
@@ -125,10 +120,12 @@ const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // =====
           tokens.forEach(t => {
             const row = document.createElement('tr');
             row.className = 'token-row';
-            row.innerHTML = `<td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
-<td class="p-4 font-mono">${t.balance}</td>
-<td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
-<td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>`;
+            row.innerHTML = `
+              <td class="p-4 flex items-center gap-3"><img src="${t.logo || 'https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/generic.png'}" class="w-8 h-8 rounded-full" onerror="this.src='https://placehold.co/32x32'"><div><div class="font-medium">${t.name}</div><div class="text-xs text-gray-400">${t.symbol}</div></div></td>
+              <td class="p-4 font-mono">${t.balance}</td>
+              <td class="p-4">$${t.quoteRate ? t.quoteRate.toFixed(6) : '0.00'}</td>
+              <td class="p-4 font-semibold text-emerald-300">$${t.quote ? t.quote.toFixed(2) : '0.00'}</td>
+            `;
             tokenTableBody.appendChild(row);
           });
         }
@@ -167,7 +164,6 @@ const API_BASE = 'https://crypto-portfolio-mu-pearl.vercel.app/api';    // =====
       }
     }
 
-    // Wallet connection
     async function connectWallet() {
       if (!window.ethereum) {
         alert('Install MetaMask or another EVM wallet');
